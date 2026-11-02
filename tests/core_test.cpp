@@ -75,6 +75,11 @@ void persistence(const std::string& path) {
     Id task,note;
     {
         Store store(path);
+        const auto initial_window=store.window_state();
+        check(initial_window.width>0 && initial_window.height>0 && !initial_window.maximized,"A new profile must have a normal window size");
+        store.save_window_state({900,680,false});
+        store.save_window_state({900,680,true});
+        rejects([&]{store.save_window_state({0,680,false});});
         store.save_settings({50,10,30,3});
         task=store.add_task("学习 C++ & GTK <4>");
         note=store.add_note();
@@ -97,6 +102,9 @@ void persistence(const std::string& path) {
     }
     {
         Store reopened(path);
+        const auto window=reopened.window_state();
+        check(window.width==900 && window.height==680 && window.maximized,"Normal size and maximized state must survive restart");
+        reopened.save_window_state({960,720,false});
         check(reopened.settings().focus_minutes==50,"Settings must survive restart");
         check(reopened.tasks().front().id==task && reopened.tasks().front().title=="重命名后的任务","Tasks must survive restart");
         check(reopened.notes().front().body.find("**重点**")!=std::string::npos,"Markdown source must survive restart");
@@ -105,6 +113,11 @@ void persistence(const std::string& path) {
         reopened.delete_note(note);
         check(reopened.notes().empty(),"Deleted notes must be removed");
         check(reopened.statistics().all==35*60*second,"Statistics must survive restart");
+    }
+    {
+        Store reopened(path);
+        const auto window=reopened.window_state();
+        check(window.width==960 && window.height==720 && !window.maximized,"Restored and resized window state must replace the previous state");
     }
 }
 }

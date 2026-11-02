@@ -11,8 +11,10 @@ namespace focus {
 Application::Application(AdwApplication* app) : app_(app), store_(default_data_path()), timer_(store_.settings()) {
     window_ = adw_application_window_new(GTK_APPLICATION(app));
     gtk_window_set_title(GTK_WINDOW(window_),"专注 · Focus");
-    gtk_window_set_default_size(GTK_WINDOW(window_),1040,820);
+    const auto state = store_.window_state();
+    gtk_window_set_default_size(GTK_WINDOW(window_),state.width,state.height);
     gtk_widget_set_size_request(window_,720,600);
+    if (state.maximized) gtk_window_maximize(GTK_WINDOW(window_));
     gtk_window_set_icon_name(GTK_WINDOW(window_),"io.github.focus.Timer");
     gtk_icon_theme_add_resource_path(gtk_icon_theme_get_for_display(gtk_widget_get_display(window_)),"/io/github/focus/Timer/icons");
     auto* provider = gtk_css_provider_new();
@@ -134,6 +136,11 @@ bool Application::close() {
         notes_->flush();
         tick(true);
         flush_session();
+        WindowState state;
+        // GTK keeps this size unchanged while maximized or fullscreen.
+        gtk_window_get_default_size(GTK_WINDOW(window_),&state.width,&state.height);
+        state.maximized = gtk_window_is_maximized(GTK_WINDOW(window_));
+        store_.save_window_state(state);
         if (tick_id_) { g_source_remove(tick_id_); tick_id_ = 0; }
         return true;
     } catch (const std::exception& e) { ui::error(window_,e.what()); return false; }

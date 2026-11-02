@@ -9,6 +9,11 @@ namespace focus {
 using Id = std::int64_t;
 struct Task { Id id; std::string title; bool done; Microseconds total; };
 struct Note { Id id; std::string title; std::string body; std::int64_t updated; };
+struct WindowState {
+    int width = 1040;
+    int height = 820;
+    bool maximized = false;
+};
 struct Session {
     Id id = 0;
     Id task_id = 0;
@@ -36,6 +41,8 @@ public:
     Store& operator=(const Store&) = delete;
     Settings settings() const;
     void save_settings(const Settings& settings);
+    WindowState window_state() const;
+    void save_window_state(const WindowState& state);
     std::vector<Task> tasks() const;
     Id add_task(const std::string& title);
     void update_task(Id id, const std::string& title, bool done);

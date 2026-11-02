@@ -79,6 +79,7 @@ Store::Store(const std::string& path) {
         exec("PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL;"
              "CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY CHECK(id=1), focus INTEGER NOT NULL, short_break INTEGER NOT NULL, long_break INTEGER NOT NULL, rounds INTEGER NOT NULL);"
              "INSERT OR IGNORE INTO settings VALUES(1,25,5,15,4);"
+             "CREATE TABLE IF NOT EXISTS window_state (id INTEGER PRIMARY KEY CHECK(id=1), width INTEGER NOT NULL CHECK(width>0), height INTEGER NOT NULL CHECK(height>0), maximized INTEGER NOT NULL CHECK(maximized IN (0,1)));"
              "CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY, title TEXT NOT NULL, done INTEGER NOT NULL DEFAULT 0);"
              "CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY, title TEXT NOT NULL, body TEXT NOT NULL, updated INTEGER NOT NULL);"
              "CREATE TABLE IF NOT EXISTS sessions (id INTEGER PRIMARY KEY, task_id INTEGER REFERENCES tasks(id), mode INTEGER NOT NULL, total INTEGER NOT NULL DEFAULT 0, completed INTEGER NOT NULL DEFAULT 0);"
@@ -102,6 +103,16 @@ void Store::save_settings(const Settings& settings) {
     Statement query(db_, "UPDATE settings SET focus=?,short_break=?,long_break=?,rounds=? WHERE id=1");
     query.bind(1, settings.focus_minutes); query.bind(2, settings.short_break_minutes);
     query.bind(3, settings.long_break_minutes); query.bind(4, settings.rounds); query.next();
+}
+WindowState Store::window_state() const {
+    Statement query(db_, "SELECT width,height,maximized FROM window_state WHERE id=1");
+    if (!query.next()) return {};
+    return {static_cast<int>(query.number(0)),static_cast<int>(query.number(1)),query.number(2)!=0};
+}
+void Store::save_window_state(const WindowState& state) {
+    if (state.width<=0 || state.height<=0) throw std::invalid_argument("窗口尺寸必须大于零");
+    Statement query(db_, "INSERT INTO window_state VALUES(1,?,?,?) ON CONFLICT(id) DO UPDATE SET width=excluded.width,height=excluded.height,maximized=excluded.maximized");
+    query.bind(1,state.width); query.bind(2,state.height); query.bind(3,state.maximized); query.next();
 }
 std::vector<Task> Store::tasks() const {
     Statement query(db_, "SELECT t.id,t.title,t.done,COALESCE(SUM(s.total),0) FROM tasks t LEFT JOIN sessions s ON s.task_id=t.id GROUP BY t.id ORDER BY t.done,t.id DESC");
