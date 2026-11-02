@@ -99,15 +99,17 @@ StatsPage::StatsPage(Application& app) : app_(app) {
     gtk_box_append(GTK_BOX(detail_box),records_scroll_);
     details_=adw_navigation_page_new(detail_box,"专注记录");
     adw_navigation_view_add(ADW_NAVIGATION_VIEW(root_),details_);
-    refresh();
 }
 void StatsPage::show_overview() {
     const char* pages[]={"overview"};
     adw_navigation_view_replace_with_tags(ADW_NAVIGATION_VIEW(root_),pages,1);
-    refresh();
 }
 void StatsPage::refresh() {
     const auto stats=app_.store().statistics();
+    if (rendered_statistics_ && *rendered_statistics_==stats) {
+        if (adw_navigation_view_get_visible_page(ADW_NAVIGATION_VIEW(root_))==details_) refresh_records();
+        return;
+    }
     gtk_label_set_text(GTK_LABEL(today_),metric(stats.today).c_str());
     gtk_label_set_text(GTK_LABEL(week_),metric(stats.week).c_str());
     gtk_label_set_text(GTK_LABEL(total_),metric(stats.all).c_str());
@@ -141,6 +143,7 @@ void StatsPage::refresh() {
     }
     gtk_widget_set_visible(tasks_,!stats.tasks.empty());
     gtk_widget_set_visible(empty_,stats.tasks.empty());
+    rendered_statistics_=stats;
     if (adw_navigation_view_get_visible_page(ADW_NAVIGATION_VIEW(root_))==details_) refresh_records();
 }
 void StatsPage::show_day(const std::string& day) {

@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <memory>
 #include <stdexcept>
+#include <tuple>
 
 namespace focus {
 namespace {
@@ -104,11 +105,45 @@ Store::Store(const std::string& path) {
             } catch (...) { sqlite3_exec(db_, "ROLLBACK", nullptr, nullptr, nullptr); throw; }
             exec("PRAGMA foreign_keys=ON;");
         }
+        exec("CREATE INDEX IF NOT EXISTS sessions_task_totals ON sessions(task_id,total,completed);");
     } catch (...) { sqlite3_close(db_); db_ = nullptr; throw; }
 }
 Store::~Store() { sqlite3_close(db_); }
 void Store::exec(const char* sql) const {
     if (sqlite3_exec(db_, sql, nullptr, nullptr, nullptr) != SQLITE_OK) throw std::runtime_error(sqlite3_errmsg(db_));
+}
+void Store::check_data_version() const {
+    Statement query(db_,"PRAGMA data_version");
+    query.next();
+    if (data_version_==query.number(0)) return;
+    data_version_=query.number(0);
+    totals_cache_.reset();
+    statistics_cache_.reset();
+}
+const Store::Totals& Store::totals() const {
+    if (!totals_cache_) {
+        Totals result;
+        Statement query(db_,"SELECT task_id,SUM(total),SUM(completed) FROM sessions GROUP BY task_id");
+        while (query.next()) {
+            result.all+=query.number(1);
+            result.completed+=static_cast<int>(query.number(2));
+            if (query.number(1)) result.tasks[query.number(0)]=query.number(1);
+        }
+        totals_cache_=std::move(result);
+    }
+    return *totals_cache_;
+}
+void Store::adjust_totals(Id task, Microseconds duration, int completed) {
+    if (!totals_cache_) return;
+    try {
+        if (duration) {
+            auto& value=totals_cache_->tasks[task];
+            value+=duration;
+            if (!value) totals_cache_->tasks.erase(task);
+        }
+        totals_cache_->all+=duration;
+        totals_cache_->completed+=completed;
+    } catch (...) { totals_cache_.reset(); throw; }
 }
 Settings Store::settings() const {
     Statement query(db_, "SELECT focus,short_break,long_break,rounds FROM settings WHERE id=1");
@@ -134,20 +169,27 @@ void Store::save_window_state(const WindowState& state) {
     query.bind(1,state.width); query.bind(2,state.height); query.bind(3,state.maximized); query.next();
 }
 std::vector<Task> Store::tasks() const {
-    Statement query(db_, "SELECT t.id,t.title,t.done,COALESCE(SUM(s.total),0) FROM tasks t LEFT JOIN sessions s ON s.task_id=t.id GROUP BY t.id ORDER BY t.done,t.id DESC");
+    check_data_version();
+    const auto& durations=totals().tasks;
+    Statement query(db_, "SELECT id,title,done FROM tasks ORDER BY done,id DESC");
     std::vector<Task> result;
-    while (query.next()) result.push_back({query.number(0),query.text(1),query.number(2)!=0,query.number(3)});
+    while (query.next()) {
+        const auto found=durations.find(query.number(0));
+        result.push_back({query.number(0),query.text(1),query.number(2)!=0,found==durations.end()?0:found->second});
+    }
     return result;
 }
 Id Store::add_task(const std::string& title) {
     validate_title(title);
     Statement query(db_, "INSERT INTO tasks(title) VALUES(?)"); query.bind(1,title); query.next();
+    statistics_cache_.reset();
     return sqlite3_last_insert_rowid(db_);
 }
 void Store::update_task(Id id, const std::string& title, bool done) {
     validate_title(title);
     Statement query(db_, "UPDATE tasks SET title=?,done=? WHERE id=?");
     query.bind(1,title); query.bind(2,done); query.bind(3,id); query.next();
+    statistics_cache_.reset();
 }
 std::vector<Note> Store::notes() const {
     Statement query(db_, "SELECT id,title,body,updated FROM notes ORDER BY updated DESC,id DESC");
@@ -174,7 +216,19 @@ Session Store::begin_session(Id task, Mode mode) {
 }
 void Store::save_session(const Session& session) {
     exec("BEGIN IMMEDIATE");
+    Id task=0;
+    Microseconds duration_delta=0;
+    int completed_delta=0;
     try {
+        check_data_version();
+        if (totals_cache_) {
+            Statement previous(db_,"SELECT task_id,total,completed FROM sessions WHERE id=?");
+            previous.bind(1,session.id);
+            if (!previous.next()) throw std::runtime_error("专注记录已被删除");
+            task=previous.number(0);
+            duration_delta=session.total-previous.number(1);
+            completed_delta=static_cast<int>(session.completed)-static_cast<int>(previous.number(2));
+        }
         Statement update(db_, "UPDATE sessions SET total=?,completed=?,started_at=NULLIF(?,0),ended_at=NULLIF(?,0) WHERE id=?");
         update.bind(1,session.total); update.bind(2,session.completed);
         update.bind(3,session.started_at); update.bind(4,session.ended_at); update.bind(5,session.id); update.next();
@@ -184,12 +238,21 @@ void Store::save_session(const Session& session) {
         }
         exec("COMMIT");
     } catch (...) { sqlite3_exec(db_, "ROLLBACK", nullptr, nullptr, nullptr); throw; }
+    statistics_cache_.reset();
+    adjust_totals(task,duration_delta,completed_delta);
 }
 void Store::delete_sessions(const std::vector<Id>& ids) {
     if (ids.empty()) return;
     exec("BEGIN IMMEDIATE");
+    std::vector<std::tuple<Id,Microseconds,int>> removed;
     try {
+        check_data_version();
         for (const auto id : ids) {
+            if (totals_cache_) {
+                Statement previous(db_,"SELECT task_id,total,completed FROM sessions WHERE id=?");
+                previous.bind(1,id);
+                if (previous.next()) removed.emplace_back(previous.number(0),previous.number(1),static_cast<int>(previous.number(2)));
+            }
             Statement activity(db_, "DELETE FROM activity WHERE session_id=?");
             activity.bind(1,id); activity.next();
             Statement session(db_, "DELETE FROM sessions WHERE id=?");
@@ -197,6 +260,8 @@ void Store::delete_sessions(const std::vector<Id>& ids) {
         }
         exec("COMMIT");
     } catch (...) { sqlite3_exec(db_, "ROLLBACK", nullptr, nullptr, nullptr); throw; }
+    statistics_cache_.reset();
+    for (const auto& [task,duration,completed] : removed) adjust_totals(task,-duration,-completed);
 }
 std::vector<SessionRecord> Store::sessions_on(const std::string& day) const {
     Statement query(db_, "SELECT s.id,COALESCE(t.title,'自由专注'),s.mode,s.completed,s.total,a.duration,s.started_at,s.ended_at "
@@ -209,8 +274,11 @@ std::vector<SessionRecord> Store::sessions_on(const std::string& day) const {
     return result;
 }
 Statistics Store::statistics() const {
-    Statistics result;
+    check_data_version();
     auto today = datetime(g_get_real_time());
+    const auto current_date=date_string(today.get());
+    if (statistics_cache_ && statistics_date_==current_date) return *statistics_cache_;
+    Statistics result;
     for (int offset = -6; offset <= 0; ++offset) {
         Date day(g_date_time_add_days(today.get(), offset), g_date_time_unref);
         auto date = date_string(day.get());
@@ -220,10 +288,19 @@ Statistics Store::statistics() const {
         result.week += query.number(0);
         if (offset == 0) result.today = query.number(0);
     }
-    Statement totals(db_, "SELECT COALESCE(SUM(total),0),COALESCE(SUM(completed),0) FROM sessions");
-    totals.next(); result.all=totals.number(0); result.completed=static_cast<int>(totals.number(1));
-    Statement tasks(db_, "SELECT COALESCE(t.title,'自由专注'),SUM(s.total) FROM sessions s LEFT JOIN tasks t ON s.task_id=t.id WHERE s.total>0 GROUP BY s.task_id ORDER BY SUM(s.total) DESC");
-    while (tasks.next()) result.tasks.push_back({tasks.text(0),tasks.number(1)});
+    const auto& summary=totals();
+    result.all=summary.all;
+    result.completed=summary.completed;
+    Statement tasks(db_,"SELECT id,title FROM tasks ORDER BY id");
+    while (tasks.next()) {
+        const auto found=summary.tasks.find(tasks.number(0));
+        if (found!=summary.tasks.end() && found->second>0) result.tasks.push_back({tasks.text(1),found->second});
+    }
+    if (const auto free=summary.tasks.find(0); free!=summary.tasks.end() && free->second>0)
+        result.tasks.push_back({"自由专注",free->second});
+    std::stable_sort(result.tasks.begin(),result.tasks.end(),[](const TaskTotal& left,const TaskTotal& right){return left.total>right.total;});
+    statistics_cache_=result;
+    statistics_date_=current_date;
     return result;
 }
 }

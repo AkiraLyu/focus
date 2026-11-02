@@ -307,6 +307,85 @@ void history_upgrade(const std::string& path) {
     check(reopened.statistics().all==3*second && reopened.sessions_on("2026-11-03").front().ended_at!=0,
           "Upgraded profiles must support saving, deleting and reopening records");
 }
+void cached_statistics(const std::string& path) {
+    Store store(path);
+    check(store.statistics().all==0 && store.tasks().empty(),"A fresh profile must have empty statistics");
+    const auto task=store.add_task("缓存任务");
+    const auto wall=g_get_real_time();
+    auto session=store.begin_session(task,Mode::Pomodoro);
+    session.add(15*second,wall);
+    store.save_session(session);
+    check(store.statistics().all==15*second && store.tasks().front().total==15*second,
+          "Cached totals must include newly saved focus");
+    store.save_session(session);
+    check(store.statistics().all==15*second,"Saving a checkpoint twice must not inflate cached totals");
+    session.add(10*second,wall+10*second); session.completed=true;
+    store.save_session(session);
+    check(store.statistics().all==25*second && store.statistics().completed==1,
+          "Updating an existing session must update cached duration and completed count");
+    store.update_task(task,"已改名",true);
+    check(store.statistics().tasks.front().title=="已改名" && store.tasks().front().done,
+          "Task metadata must update without losing cached focus duration");
+    auto free=store.begin_session(0,Mode::Stopwatch);
+    free.add(5*second,wall); store.save_session(free);
+    check(store.statistics().all==30*second && store.statistics().tasks.size()==2,
+          "Free focus must be included alongside named tasks");
+    store.delete_sessions({session.id,session.id,99999});
+    check(store.statistics().all==5*second && store.statistics().completed==0 && store.tasks().front().total==0,
+          "Batch deletion must subtract each record exactly once from cached totals");
+
+    Store writer(path);
+    auto external=writer.begin_session(task,Mode::Stopwatch);
+    external.add(8*second,wall); writer.save_session(external);
+    check(store.statistics().all==13*second && store.tasks().front().total==8*second,
+          "Statistics must observe committed changes from another database connection");
+    writer.update_task(task,"外部改名",false);
+    check(store.statistics().tasks.front().title=="外部改名" && !store.tasks().front().done,
+          "External task changes must invalidate cached labels");
+    writer.delete_sessions({external.id});
+    check(store.statistics().all==5*second && store.tasks().front().total==0,
+          "External deletion must invalidate previously cached totals");
+
+    const auto database_command=[&](const std::string& sql) {
+        sqlite3* db=nullptr;
+        check(sqlite3_open(path.c_str(),&db)==SQLITE_OK,"Could not open failure fixture connection");
+        const auto result=sqlite3_exec(db,sql.c_str(),nullptr,nullptr,nullptr);
+        sqlite3_close(db);
+        check(result==SQLITE_OK,"Could not configure database failure fixture");
+    };
+    database_command("CREATE TRIGGER reject_activity BEFORE INSERT ON activity BEGIN SELECT RAISE(ABORT,'test write failure'); END;");
+    const auto before=store.statistics();
+    free.add(4*second,wall+4*second);
+    rejects([&]{store.save_session(free);});
+    check(store.statistics()==before && writer.statistics()==before,
+          "A failed save must preserve both cached and persisted statistics");
+    database_command("DROP TRIGGER reject_activity;");
+    store.statistics();
+    store.save_session(free);
+    check(store.statistics().all==9*second,"Retrying a failed save must apply its duration exactly once");
+
+    auto extra=store.begin_session(task,Mode::Stopwatch);
+    extra.add(2*second,wall); store.save_session(extra);
+    database_command("CREATE TRIGGER reject_deletion BEFORE DELETE ON sessions WHEN OLD.id="+std::to_string(extra.id)+
+                     " BEGIN SELECT RAISE(ABORT,'test delete failure'); END;");
+    const auto before_delete=store.statistics();
+    rejects([&]{store.delete_sessions({free.id,extra.id});});
+    check(store.statistics()==before_delete && writer.statistics()==before_delete && store.tasks().front().total==2*second,
+          "A partially failed batch deletion must preserve all cached and persisted statistics");
+    database_command("DROP TRIGGER reject_deletion;");
+    store.statistics();
+    store.delete_sessions({free.id,extra.id});
+    check(store.statistics().all==0 && store.statistics().tasks.empty(),"Deleting the last records must clear cached task distribution");
+
+    g_setenv("TZ","Etc/GMT-14",true); tzset();
+    const auto first_date=local_date(g_get_real_time());
+    check(store.statistics().days.back().date==first_date,"Statistics must follow the current local date");
+    g_setenv("TZ","Etc/GMT+12",true); tzset();
+    const auto next_date=local_date(g_get_real_time());
+    check(first_date!=next_date && store.statistics().days.back().date==next_date,
+          "The seven-day window must update when the local date changes without a database write");
+    g_setenv("TZ","Asia/Tokyo",true); tzset();
+}
 }
 int main() {
     gchar* folder=g_dir_make_tmp("focus-test-XXXXXX",nullptr);
@@ -315,6 +394,7 @@ int main() {
     try {
         timers(); calendar(); persistence((path/"focus.db").string()); resets((path/"resets.db").string());
         history((path/"history.db").string()); history_upgrade((path/"upgrade.db").string());
+        cached_statistics((path/"cache.db").string());
         std::filesystem::remove_all(path);
         std::puts("Timer, local-day allocation, task, note and persistence checks passed.");
         return 0;

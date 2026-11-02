@@ -1,6 +1,7 @@
 #pragma once
 #include "timer.hpp"
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 struct sqlite3;
@@ -35,8 +36,14 @@ struct SessionRecord {
     Microseconds started_at;
     Microseconds ended_at;
 };
-struct DayTotal { std::string date; Microseconds total; };
-struct TaskTotal { std::string title; Microseconds total; };
+struct DayTotal {
+    std::string date; Microseconds total;
+    bool operator==(const DayTotal&) const = default;
+};
+struct TaskTotal {
+    std::string title; Microseconds total;
+    bool operator==(const TaskTotal&) const = default;
+};
 struct Statistics {
     Microseconds today = 0;
     Microseconds week = 0;
@@ -44,6 +51,7 @@ struct Statistics {
     int completed = 0;
     std::vector<DayTotal> days;
     std::vector<TaskTotal> tasks;
+    bool operator==(const Statistics&) const = default;
 };
 class Store {
 public:
@@ -68,8 +76,20 @@ public:
     std::vector<SessionRecord> sessions_on(const std::string& day) const;
     Statistics statistics() const;
 private:
+    struct Totals {
+        Microseconds all = 0;
+        int completed = 0;
+        std::map<Id,Microseconds> tasks;
+    };
     sqlite3* db_ = nullptr;
+    mutable std::optional<Totals> totals_cache_;
+    mutable std::optional<Statistics> statistics_cache_;
+    mutable std::string statistics_date_;
+    mutable Id data_version_ = 0;
     void exec(const char* sql) const;
+    void check_data_version() const;
+    const Totals& totals() const;
+    void adjust_totals(Id task, Microseconds duration, int completed);
 };
 std::string local_date(Microseconds wall_us);
 std::string default_data_path();

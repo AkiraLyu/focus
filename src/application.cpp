@@ -57,7 +57,12 @@ Application::Application(AdwApplication* app) : app_(app), store_(default_data_p
     ui::notify(G_OBJECT(stack_),"visible-child-name",window_,[this] {
         notes_->flush();
         if (std::string(adw_view_stack_get_visible_child_name(stack_)) == "stats") stats_->show_overview();
-        if (std::string(adw_view_stack_get_visible_child_name(stack_)) == "tasks") tasks_->refresh_totals();
+        refresh_visible_statistics();
+    });
+    ui::on(G_OBJECT(window_),"map",window_,[this]{refresh_visible_statistics();});
+    ui::on(G_OBJECT(window_),"realize",window_,[this] {
+        auto* surface=gtk_native_get_surface(GTK_NATIVE(window_));
+        ui::notify(G_OBJECT(surface),"state",window_,[this]{refresh_visible_statistics();});
     });
     g_signal_connect(window_,"close-request",G_CALLBACK(+[](GtkWindow*, gpointer data) -> gboolean {
         auto& self=*static_cast<Application*>(data);
@@ -106,10 +111,7 @@ Application::Application(AdwApplication* app) : app_(app), store_(default_data_p
         auto& self = *static_cast<Application*>(data);
         try {
             self.tick();
-            if (++self.ticks_ % 10 == 0) {
-                self.stats_->refresh();
-                self.tasks_->refresh_totals();
-            }
+            if (++self.ticks_ % 10 == 0) self.refresh_visible_statistics();
         } catch (const std::exception& e) {
             try { self.focus_timer_.advance(timer_now(),g_get_real_time(),true); } catch (...) {}
             self.refresh();
@@ -147,8 +149,7 @@ void Application::tick(bool pause) {
         g_application_send_notification(G_APPLICATION(app_),"timer-phase",notification);
         g_object_unref(notification);
         event_sound_.play_completion(event.completed ? "专注完成" : "休息结束");
-        tasks_->refresh_totals();
-        stats_->refresh();
+        refresh_visible_statistics();
     }
     refresh();
 }
@@ -162,6 +163,14 @@ void Application::refresh() {
             timer().elapsed()>0?"已暂停":"待开始";
         tray_->update(std::string(state)+" · "+clock_text(timer().display_time()),timer_action_label());
     }
+}
+void Application::refresh_visible_statistics() {
+    if (!window_ || !gtk_widget_get_mapped(window_)) return;
+    auto* surface=gtk_native_get_surface(GTK_NATIVE(window_));
+    if (gdk_toplevel_get_state(GDK_TOPLEVEL(surface)) & GDK_TOPLEVEL_STATE_MINIMIZED) return;
+    const std::string page=adw_view_stack_get_visible_child_name(stack_);
+    if (page=="stats") stats_->refresh();
+    else if (page=="tasks") tasks_->refresh_totals();
 }
 const char* Application::timer_action_label() const {
     return timer().running()?"暂停":timer().elapsed()>0?"继续计时":timer().phase()==Phase::Focus?"开始专注":"开始休息";
@@ -178,33 +187,30 @@ void Application::update_inhibitor() {
     }
 }
 void Application::toggle_timer() {
-    if (timer().running()) { tick(true); tasks_->refresh_totals(); }
+    if (timer().running()) tick(true);
     else {
         focus_timer_.start(selected_task_,timer_now());
         refresh();
     }
-    stats_->refresh();
+    refresh_visible_statistics();
 }
 void Application::finish_timer() {
     tick(true);
     focus_timer_.finish();
-    tasks_->refresh_totals();
     refresh();
-    stats_->refresh();
+    refresh_visible_statistics();
     toast("专注时长已保存");
 }
 void Application::reset_timer(ResetScope scope) {
     focus_timer_.reset(scope);
     g_application_withdraw_notification(G_APPLICATION(app_),"timer-phase");
-    tasks_->refresh_totals();
-    stats_->refresh();
+    refresh_visible_statistics();
     refresh();
 }
 void Application::set_mode(Mode mode) { focus_timer_.set_mode(mode); refresh(); }
 void Application::delete_session(Id id) {
     focus_timer_.delete_session(id);
-    tasks_->refresh_totals();
-    stats_->refresh();
+    refresh_visible_statistics();
     refresh();
     toast("专注记录已删除");
 }
@@ -215,7 +221,7 @@ void Application::tasks_changed() {
     })) selected_task_ = 0;
     focus_->reload_task_choices();
     tasks_->reload();
-    stats_->refresh();
+    refresh_visible_statistics();
 }
 void Application::save_window_state() {
     WindowState state;

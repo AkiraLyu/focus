@@ -43,5 +43,6 @@ private:
     GtkWidget* records_total_;
     std::string selected_day_;
     std::vector<RecordWidgets> record_rows_;
+    std::optional<Statistics> rendered_statistics_;
 };
 }

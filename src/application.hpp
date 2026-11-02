@@ -34,6 +34,7 @@ public:
 private:
     void tick(bool pause = false);
     void refresh();
+    void refresh_visible_statistics();
     void hide();
     void save_window_state();
     void update_inhibitor();
