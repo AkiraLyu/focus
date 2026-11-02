@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Focus
+Name[zh_CN]=专注
+Comment=Focus timer, quick notes and statistics
+Comment[zh_CN]=番茄钟、快速笔记与专注统计
+Exec=focus
+Icon=io.github.focus.Timer
+Terminal=false
+Type=Application
+Categories=Office;GTK;
+Keywords=Pomodoro;Timer;Notes;Focus;
+StartupNotify=true
