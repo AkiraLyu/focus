@@ -165,6 +165,19 @@ void Store::save_session(const Session& session) {
         exec("COMMIT");
     } catch (...) { sqlite3_exec(db_, "ROLLBACK", nullptr, nullptr, nullptr); throw; }
 }
+void Store::delete_sessions(const std::vector<Id>& ids) {
+    if (ids.empty()) return;
+    exec("BEGIN IMMEDIATE");
+    try {
+        for (const auto id : ids) {
+            Statement activity(db_, "DELETE FROM activity WHERE session_id=?");
+            activity.bind(1,id); activity.next();
+            Statement session(db_, "DELETE FROM sessions WHERE id=?");
+            session.bind(1,id); session.next();
+        }
+        exec("COMMIT");
+    } catch (...) { sqlite3_exec(db_, "ROLLBACK", nullptr, nullptr, nullptr); throw; }
+}
 Statistics Store::statistics() const {
     Statistics result;
     auto today = datetime(g_get_real_time());

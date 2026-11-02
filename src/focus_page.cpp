@@ -66,7 +66,17 @@ FocusPage::FocusPage(Application& app) : app_(app) {
     start_ = ui::button("开始专注","suggested-action");
     gtk_widget_add_css_class(start_,"pill"); gtk_widget_set_size_request(start_,152,44);
     finish_ = ui::button("结束并保存"); gtk_widget_add_css_class(finish_,"pill");
+    auto* reset = gtk_menu_button_new();
+    gtk_menu_button_set_label(GTK_MENU_BUTTON(reset),"重置");
+    gtk_menu_button_set_always_show_arrow(GTK_MENU_BUTTON(reset),true);
+    gtk_widget_add_css_class(reset,"pill");
+    auto* reset_menu = g_menu_new();
+    g_menu_append(reset_menu,"重置当前计时","app.reset-current");
+    g_menu_append(reset_menu,"重置整个番茄钟周期","app.reset-cycle");
+    gtk_menu_button_set_menu_model(GTK_MENU_BUTTON(reset),G_MENU_MODEL(reset_menu));
+    g_object_unref(reset_menu);
     gtk_box_append(GTK_BOX(buttons),start_); gtk_box_append(GTK_BOX(buttons),finish_);
+    gtk_box_append(GTK_BOX(buttons),reset);
     gtk_box_append(GTK_BOX(content),buttons);
     ui::clicked(start_,[this]{app_.toggle_timer();});
     ui::clicked(finish_,[this]{app_.finish_timer();});

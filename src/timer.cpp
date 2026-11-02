@@ -55,7 +55,11 @@ Tick Timer::advance(Microseconds now) {
         if (result.completed) {
             ++rounds_;
             phase_ = rounds_ % settings_.rounds == 0 ? Phase::LongBreak : Phase::ShortBreak;
-        } else phase_ = Phase::Focus;
+        } else {
+            result.cycle_completed = phase_ == Phase::LongBreak;
+            if (result.cycle_completed) rounds_ = 0;
+            phase_ = Phase::Focus;
+        }
         running_ = false;
         elapsed_ = 0;
         result.phase_changed = true;
@@ -67,10 +71,20 @@ Tick Timer::pause(Microseconds now) {
     running_ = false;
     return result;
 }
-void Timer::reset() { running_ = false; elapsed_ = 0; phase_ = Phase::Focus; }
+void Timer::reset(ResetScope scope) {
+    running_ = false;
+    elapsed_ = 0;
+    last_ = 0;
+    if (scope == ResetScope::Cycle) { phase_ = Phase::Focus; rounds_ = 0; }
+}
+void Timer::finish() {
+    if (phase_ == Phase::LongBreak) rounds_ = 0;
+    reset(ResetScope::Current);
+    phase_ = Phase::Focus;
+}
 void Timer::set_mode(Mode mode) {
     if (engaged()) throw std::logic_error("请先结束当前计时");
-    reset();
+    reset(ResetScope::Cycle);
     mode_ = mode;
 }
 std::string clock_text(Microseconds time) {

@@ -7,6 +7,7 @@ using Microseconds = std::int64_t;
 constexpr Microseconds second = 1'000'000;
 enum class Mode { Pomodoro, Stopwatch };
 enum class Phase { Focus, ShortBreak, LongBreak };
+enum class ResetScope { Current, Cycle };
 struct Settings {
     int focus_minutes = 25;
     int short_break_minutes = 5;
@@ -19,6 +20,7 @@ struct Tick {
     Microseconds finished_ago_us = 0;
     bool completed = false;
     bool phase_changed = false;
+    bool cycle_completed = false;
 };
 class Timer {
 public:
@@ -26,7 +28,8 @@ public:
     void start(Microseconds now);
     Tick advance(Microseconds now);
     Tick pause(Microseconds now);
-    void reset();
+    void reset(ResetScope scope);
+    void finish();
     void set_mode(Mode mode);
     void set_settings(Settings settings);
     bool running() const { return running_; }

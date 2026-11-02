@@ -1,8 +1,7 @@
 #pragma once
-#include "store.hpp"
+#include "focus_timer.hpp"
 #include <adwaita.h>
 #include <memory>
-#include <optional>
 
 namespace focus {
 class FocusPage;
@@ -17,12 +16,13 @@ public:
     void present();
     void quit();
     Store& store() { return store_; }
-    const Timer& timer() const { return timer_; }
+    const Timer& timer() const { return focus_timer_.timer(); }
     GtkWidget* window() const { return window_; }
     Id selected_task() const { return selected_task_; }
     void select_task(Id id);
     void toggle_timer();
     void finish_timer();
+    void reset_timer(ResetScope scope);
     void set_mode(Mode mode);
     void tasks_changed();
     void show_settings();
@@ -30,15 +30,13 @@ public:
     const char* timer_action_label() const;
 private:
     void tick(bool pause = false);
-    void flush_session();
     void refresh();
     void hide();
     void save_window_state();
     void update_inhibitor();
     AdwApplication* app_;
     Store store_;
-    Timer timer_;
-    std::optional<Session> session_;
+    FocusTimer focus_timer_;
     Id selected_task_ = 0;
     GtkWidget* window_ = nullptr;
     AdwViewStack* stack_ = nullptr;

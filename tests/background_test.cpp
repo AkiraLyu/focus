@@ -54,6 +54,17 @@ void exercise(AdwApplication* app) {
     check(gtk_widget_get_visible(GTK_WIDGET(window)),"Show action did not restore the window");
     g_action_group_activate_action(G_ACTION_GROUP(app),"toggle-timer",nullptr);
     check(controller.timer().running(),"Timer action did not resume focus");
+    check(!g_action_group_get_action_enabled(G_ACTION_GROUP(app),"reset-cycle"),"Stopwatch mode must disable cycle reset");
+    g_action_group_activate_action(G_ACTION_GROUP(app),"reset-current",nullptr);
+    pump(1200);
+    check(!controller.timer().engaged() && controller.store().statistics().all==0,"Current reset must discard saved stopwatch time without later restoring it");
+    controller.set_mode(Mode::Pomodoro);
+    check(g_action_group_get_action_enabled(G_ACTION_GROUP(app),"reset-cycle"),"Pomodoro mode must enable cycle reset");
+    controller.toggle_timer();
+    wait_for([&]{return controller.store().statistics().all>=second;},"Pomodoro did not record focus");
+    g_action_group_activate_action(G_ACTION_GROUP(app),"reset-cycle",nullptr);
+    check(!controller.timer().engaged() && controller.timer().phase()==Phase::Focus && controller.store().statistics().all==0,
+          "Cycle reset must discard persisted focus and return to the first round");
     controller.quit();
     pump();
     check(!controller.timer().running(),"Quit must stop the timer");

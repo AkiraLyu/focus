@@ -12,7 +12,7 @@ pkg_check_modules(CMARK REQUIRED IMPORTED_TARGET libcmark-gfm)
 pkg_check_modules(DBUSMENU REQUIRED IMPORTED_TARGET dbusmenu-glib-0.4)
 find_program(GLIB_COMPILE_RESOURCES glib-compile-resources REQUIRED)
 
-add_library(focus_core src/timer.cpp src/store.cpp)
+add_library(focus_core src/timer.cpp src/store.cpp src/focus_timer.cpp)
 target_include_directories(focus_core PUBLIC src)
 target_link_libraries(focus_core PUBLIC PkgConfig::SQLITE PkgConfig::GLIB)
 target_compile_options(focus_core PRIVATE -Wall -Wextra -Wpedantic)

@@ -1,5 +1,6 @@
 #include "store.hpp"
 #include "timer.hpp"
+#include "focus_timer.hpp"
 #include <glib.h>
 #include <cstdio>
 #include <filesystem>
@@ -38,14 +39,14 @@ void timers() {
     check(rest.focus_us==0 && !rest.completed && timer.phase()==Phase::Focus,"Breaks must not contribute focus time");
     timer.start(360*second); timer.advance(420*second);
     check(timer.phase()==Phase::LongBreak && timer.completed_rounds()==2,"Configured round count must trigger a long break");
-    timer.reset();
+    timer.finish();
     timer.set_mode(Mode::Stopwatch);
     timer.start(0);
     check(timer.pause(3'601*second).focus_us==3'601*second,"Stopwatch must run beyond a countdown duration");
     check(clock_text(timer.display_time())=="01:00:01","Long stopwatch time must include hours");
     timer.start(4'000*second);
     check(timer.pause(4'002*second).focus_us==2*second,"Resume must exclude paused interval");
-    timer.reset();
+    timer.finish();
     timer.set_settings({50,10,30,3});
     check(timer.duration()==50*60*second,"Settings must update the next duration");
     rejects([&]{timer.set_settings({0,5,15,4});});
@@ -129,13 +130,84 @@ void persistence(const std::string& path) {
         check(window.width==960 && window.height==720 && !window.maximized,"Restored and resized window state must replace the previous state");
     }
 }
+void resets(const std::string& path) {
+    Microseconds expected;
+    {
+        Store store(path);
+        store.save_settings({1,1,2,2});
+        const auto first=store.add_task("第一项任务"), second_task=store.add_task("第二项任务");
+        auto history=store.begin_session(first,Mode::Stopwatch);
+        history.add(90*second,g_get_real_time()); store.save_session(history);
+        FocusTimer focus(store);
+        Microseconds now=0;
+        const auto wall=g_get_real_time()-3600*second;
+        const auto run=[&](Id task,int seconds,bool pause=false) {
+            focus.start(task,now);
+            now+=seconds*second;
+            return focus.advance(now,wall+now,pause);
+        };
+        const auto totals=[&](int seconds,int completed) {
+            const auto stats=store.statistics();
+            check(stats.all==seconds*second && stats.week==stats.all && stats.completed==completed,
+                  "Reset must keep duration, daily totals and completed counts consistent");
+            Microseconds tasks=0;
+            for (const auto& task:store.tasks()) tasks+=task.total;
+            check(tasks==stats.all,"Reset must update task totals");
+        };
+        run(first,15,true); totals(105,0);
+        focus.reset(ResetScope::Current); totals(90,0);
+        check(!focus.timer().engaged() && focus.timer().display_time()==60*second,"Current reset must return focus to its full duration and wait");
+        run(first,60); totals(150,1);
+        run(first,10);
+        focus.reset(ResetScope::Current);
+        check(focus.timer().phase()==Phase::ShortBreak && focus.timer().completed_rounds()==1 && focus.timer().display_time()==60*second,
+              "Resetting a short break must preserve the phase and completed focus rounds");
+        totals(150,1);
+        run(first,60);
+        run(second_task,20);
+        focus.reset(ResetScope::Current); totals(150,1);
+        check(focus.timer().completed_rounds()==1,"Current reset must preserve cycle progress");
+        focus.reset(ResetScope::Cycle); totals(90,0);
+        check(focus.timer().phase()==Phase::Focus && focus.timer().completed_rounds()==0 && !focus.timer().engaged(),
+              "Cycle reset must discard earlier rounds and return to the first focus phase");
+        run(first,60); run(first,60); run(second_task,60);
+        run(first,15);
+        focus.reset(ResetScope::Current);
+        check(focus.timer().phase()==Phase::LongBreak && focus.timer().display_time()==120*second && focus.timer().completed_rounds()==2,
+              "Resetting a long break must preserve the current cycle");
+        totals(210,2);
+        focus.reset(ResetScope::Cycle); totals(90,0);
+        run(first,60); run(first,60); run(second_task,60);
+        check(run(first,120).cycle_completed,"Finishing a long break must complete the cycle");
+        check(focus.timer().completed_rounds()==0,"A new cycle must start with no completed rounds");
+        run(first,5);
+        focus.reset(ResetScope::Cycle); totals(210,2);
+        focus.advance(now+second,wall+now+second); focus.flush(); totals(210,2);
+        run(first,7,true); focus.finish(); totals(217,2);
+        focus.reset(ResetScope::Cycle); totals(210,2);
+        run(first,9,true); focus.finish();
+        focus.set_mode(Mode::Stopwatch);
+        run(second_task,20);
+        focus.reset(ResetScope::Current); totals(219,2);
+        check(focus.timer().display_time()==0 && !focus.timer().engaged(),"Stopwatch reset must clear elapsed time and wait");
+        rejects([&]{focus.reset(ResetScope::Cycle);});
+        focus.set_mode(Mode::Pomodoro);
+        focus.reset(ResetScope::Cycle); totals(219,2);
+        run(first,60);
+        focus.set_settings({2,1,2,2});
+        focus.reset(ResetScope::Cycle); totals(279,3);
+        expected=store.statistics().all;
+    }
+    Store reopened(path);
+    check(reopened.statistics().all==expected && reopened.statistics().completed==3,"Discarded records must remain absent after reopening the database");
+}
 }
 int main() {
     gchar* folder=g_dir_make_tmp("focus-test-XXXXXX",nullptr);
     if (!folder) return 1;
     std::filesystem::path path(folder); g_free(folder);
     try {
-        timers(); calendar(); persistence((path/"focus.db").string());
+        timers(); calendar(); persistence((path/"focus.db").string()); resets((path/"resets.db").string());
         std::filesystem::remove_all(path);
         std::puts("Timer, local-day allocation, task, note and persistence checks passed.");
         return 0;

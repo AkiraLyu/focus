@@ -52,6 +52,7 @@ public:
     void delete_note(Id id);
     Session begin_session(Id task, Mode mode);
     void save_session(const Session& session);
+    void delete_sessions(const std::vector<Id>& ids);
     Statistics statistics() const;
 private:
     sqlite3* db_ = nullptr;
