@@ -2,8 +2,16 @@
 #include <algorithm>
 #include <cstdio>
 #include <stdexcept>
+#include <cerrno>
+#include <ctime>
+#include <system_error>
 
 namespace focus {
+Microseconds timer_now() {
+    timespec time{};
+    if (clock_gettime(CLOCK_BOOTTIME,&time)!=0) throw std::system_error(errno,std::generic_category(),"clock_gettime");
+    return static_cast<Microseconds>(time.tv_sec)*second+time.tv_nsec/1000;
+}
 bool Settings::valid() const {
     return focus_minutes >= 1 && focus_minutes <= 180 && short_break_minutes >= 1 &&
            short_break_minutes <= 60 && long_break_minutes >= 1 && long_break_minutes <= 120 &&
@@ -35,7 +43,11 @@ Tick Timer::advance(Microseconds now) {
     if (!running_) return result;
     auto delta = std::max<Microseconds>(0, now - last_);
     last_ = now;
-    if (mode_ == Mode::Pomodoro) delta = std::min(delta, duration() - elapsed_);
+    if (mode_ == Mode::Pomodoro) {
+        const auto remaining=duration()-elapsed_;
+        result.finished_ago_us=std::max<Microseconds>(0,delta-remaining);
+        delta=std::min(delta,remaining);
+    }
     elapsed_ += delta;
     if (phase_ == Phase::Focus) result.focus_us = delta;
     if (mode_ == Mode::Pomodoro && elapsed_ >= duration()) {

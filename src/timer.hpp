@@ -16,6 +16,7 @@ struct Settings {
 };
 struct Tick {
     Microseconds focus_us = 0;
+    Microseconds finished_ago_us = 0;
     bool completed = false;
     bool phase_changed = false;
 };
@@ -48,4 +49,5 @@ private:
 };
 std::string clock_text(Microseconds time);
 std::string duration_text(Microseconds time);
+Microseconds timer_now();
 }

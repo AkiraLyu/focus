@@ -110,7 +110,7 @@ void FocusPage::update() {
     const auto round = "已完成 " + std::to_string(timer.completed_rounds()) + " 个番茄";
     gtk_widget_set_visible(round_,timer.mode()==Mode::Pomodoro);
     gtk_label_set_text(GTK_LABEL(round_),round.c_str());
-    gtk_button_set_label(GTK_BUTTON(start_),timer.running()?"暂停":timer.elapsed()>0?"继续计时":timer.phase()==Phase::Focus?"开始专注":"开始休息");
+    gtk_button_set_label(GTK_BUTTON(start_),app_.timer_action_label());
     gtk_widget_set_sensitive(finish_,timer.engaged() || timer.phase()!=Phase::Focus);
     gtk_widget_set_sensitive(mode_,!timer.engaged());
     gtk_widget_set_sensitive(picker_,!timer.engaged());

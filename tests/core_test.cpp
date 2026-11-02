@@ -30,6 +30,7 @@ void timers() {
     timer.start(100*second);
     auto complete=timer.advance(200*second);
     check(complete.focus_us==45*second && complete.completed,"Countdown must cap delayed callbacks at its deadline");
+    check(complete.finished_ago_us==55*second,"Delayed completion must preserve the actual end time");
     check(timer.phase()==Phase::ShortBreak && !timer.running(),"First round must wait at short break");
     check(timer.advance(300*second).focus_us==0,"Next phase must wait for explicit start");
     timer.start(300*second);
@@ -54,12 +55,20 @@ void timers() {
     Microseconds total=0;
     for (int i=1;i<=10;++i) { total+=fractional.pause(i*100'000).focus_us; fractional.start(i*100'000); }
     check(total==second,"Repeated pauses must preserve sub-second focus time");
+    check(timer_now()>0,"The suspend-aware timer clock must be available");
 }
 void calendar() {
     g_setenv("TZ","Asia/Tokyo",true); tzset();
     Session session;
     session.add(20*second,local_time(2026,11,3,0,0,10));
     check(session.days["2026-11-02"]==10*second && session.days["2026-11-03"]==10*second,"Midnight sessions must split across local days");
+    Timer delayed({1,1,2,2});
+    delayed.start(0);
+    const auto completed=delayed.advance(5*60*second);
+    Session delayed_session;
+    delayed_session.add(completed.focus_us,local_time(2026,11,3,0,3,30)-completed.finished_ago_us);
+    check(delayed_session.days.size()==1 && delayed_session.days["2026-11-02"]==60*second,
+          "A countdown completed before midnight must remain on that day after a delayed wakeup");
     g_setenv("TZ","America/New_York",true); tzset();
     Session spring;
     const auto start=local_time(2026,3,8,0,0,0), end=local_time(2026,3,9,0,0,0);
