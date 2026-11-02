@@ -54,7 +54,6 @@ FocusPage::FocusPage(Application& app) : app_(app) {
     phase_ = ui::label("专注时间", "timer-phase");
     time_ = ui::label("25:00", "timer-digits");
     round_ = ui::label("", "dim-label");
-    gtk_widget_add_css_class(round_,"timer-round");
     for (auto* widget : {phase_,time_,round_}) {
         gtk_label_set_wrap(GTK_LABEL(widget),false);
         gtk_widget_set_halign(widget,GTK_ALIGN_CENTER);

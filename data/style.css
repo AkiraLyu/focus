@@ -1,14 +1,24 @@
 .page-content { padding: 28px 24px 36px; }
 .page-toolbar { padding: 12px 24px; }
 .empty-state { padding: 32px 24px; }
-.timer-digits { font-size: 54px; font-weight: 400; font-feature-settings: "tnum"; }
-.timer-digits.long-time { font-size: 38px; }
-.timer-phase { font-size: 12px; font-weight: 500; letter-spacing: 1px; }
-.timer-round { font-size: 12px; }
+.timer-digits { font-size: 64px; font-weight: 400; font-feature-settings: "tnum"; }
+.timer-digits.long-time { font-size: 44px; }
+.timer-phase { font-weight: 500; letter-spacing: 1px; }
 .stat-card { padding: 22px; }
 .stat-value { font-size: 30px; font-weight: 700; font-feature-settings: "tnum"; }
 .chart-card { padding: 24px; }
 .chart-value { font-size: 11px; font-feature-settings: "tnum"; }
+.chart-day { padding: 10px 6px; border-radius: 10px; }
+.record-summary { font-size: 15px; font-weight: 500; }
+.record-row { padding: 18px 20px; }
+.record-row .title { font-size: 15px; font-weight: 600; }
+.record-row .subtitle { font-size: 14px; color: var(--window-fg-color); opacity: 1; margin-top: 8px; }
+.record-durations { margin: 0 12px; }
+.record-duration { font-size: 22px; font-weight: 600; font-feature-settings: "tnum"; }
+.record-day-duration { font-size: 14px; font-feature-settings: "tnum"; }
+.delete-record-dialog .body { font-size: 15px; color: var(--window-fg-color); opacity: 1; }
+.delete-record-task { font-size: 16px; font-weight: 500; }
+.delete-record-duration { font-size: 28px; font-weight: 600; font-feature-settings: "tnum"; }
 .bar-track { background: alpha(var(--window-fg-color), 0.04); border-radius: 6px; }
 .bar-fill { background: var(--accent-bg-color); border-radius: 6px; min-width: 14px; }
 .note-sidebar { border-right: 1px solid alpha(var(--window-fg-color), 0.15); }

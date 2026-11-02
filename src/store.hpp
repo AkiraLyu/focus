@@ -21,7 +21,19 @@ struct Session {
     bool completed = false;
     Microseconds total = 0;
     std::map<std::string, Microseconds> days;
+    Microseconds started_at = 0;
+    Microseconds ended_at = 0;
     void add(Microseconds amount, Microseconds wall_end);
+};
+struct SessionRecord {
+    Id id;
+    std::string task;
+    Mode mode;
+    bool completed;
+    Microseconds total;
+    Microseconds day_total;
+    Microseconds started_at;
+    Microseconds ended_at;
 };
 struct DayTotal { std::string date; Microseconds total; };
 struct TaskTotal { std::string title; Microseconds total; };
@@ -53,6 +65,7 @@ public:
     Session begin_session(Id task, Mode mode);
     void save_session(const Session& session);
     void delete_sessions(const std::vector<Id>& ids);
+    std::vector<SessionRecord> sessions_on(const std::string& day) const;
     Statistics statistics() const;
 private:
     sqlite3* db_ = nullptr;

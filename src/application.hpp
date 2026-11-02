@@ -24,6 +24,8 @@ public:
     void toggle_timer();
     void finish_timer();
     void reset_timer(ResetScope scope);
+    Id active_session() const { return focus_timer_.active_session(); }
+    void delete_session(Id id);
     void set_mode(Mode mode);
     void tasks_changed();
     void show_settings();

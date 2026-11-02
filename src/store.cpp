@@ -8,6 +8,7 @@
 
 namespace focus {
 namespace {
+constexpr const char* session_schema = " (id INTEGER PRIMARY KEY AUTOINCREMENT, task_id INTEGER REFERENCES tasks(id), mode INTEGER NOT NULL, total INTEGER NOT NULL DEFAULT 0, completed INTEGER NOT NULL DEFAULT 0, started_at INTEGER, ended_at INTEGER);";
 class Statement {
 public:
     Statement(sqlite3* db, const char* sql) : db_(db) {
@@ -55,6 +56,8 @@ std::string default_data_path() {
 }
 void Session::add(Microseconds amount, Microseconds wall_end) {
     if (amount <= 0) return;
+    if (total == 0) started_at = wall_end - amount;
+    ended_at = wall_end;
     total += amount;
     auto cursor = wall_end - amount;
     while (cursor < wall_end) {
@@ -81,10 +84,26 @@ Store::Store(const std::string& path) {
              "INSERT OR IGNORE INTO settings VALUES(1,25,5,15,4);"
              "CREATE TABLE IF NOT EXISTS window_state (id INTEGER PRIMARY KEY CHECK(id=1), width INTEGER NOT NULL CHECK(width>0), height INTEGER NOT NULL CHECK(height>0), maximized INTEGER NOT NULL CHECK(maximized IN (0,1)));"
              "CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY, title TEXT NOT NULL, done INTEGER NOT NULL DEFAULT 0);"
-             "CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY, title TEXT NOT NULL, body TEXT NOT NULL, updated INTEGER NOT NULL);"
-             "CREATE TABLE IF NOT EXISTS sessions (id INTEGER PRIMARY KEY, task_id INTEGER REFERENCES tasks(id), mode INTEGER NOT NULL, total INTEGER NOT NULL DEFAULT 0, completed INTEGER NOT NULL DEFAULT 0);"
-             "CREATE TABLE IF NOT EXISTS activity (session_id INTEGER NOT NULL REFERENCES sessions(id), day TEXT NOT NULL, duration INTEGER NOT NULL, PRIMARY KEY(session_id,day));"
+             "CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY, title TEXT NOT NULL, body TEXT NOT NULL, updated INTEGER NOT NULL);");
+        exec((std::string("CREATE TABLE IF NOT EXISTS sessions")+session_schema).c_str());
+        exec("CREATE TABLE IF NOT EXISTS activity (session_id INTEGER NOT NULL REFERENCES sessions(id), day TEXT NOT NULL, duration INTEGER NOT NULL, PRIMARY KEY(session_id,day));"
              "CREATE INDEX IF NOT EXISTS activity_day ON activity(day);");
+        bool has_timestamps = false;
+        {
+            Statement columns(db_, "PRAGMA table_info(sessions)");
+            while (columns.next()) if (columns.text(1) == "started_at") has_timestamps = true;
+        }
+        if (!has_timestamps) {
+            // Rebuild once to preserve old records and give deletable records stable IDs.
+            // Unknown historical timestamps stay NULL; durations cannot reconstruct pauses.
+            exec("PRAGMA foreign_keys=OFF; BEGIN IMMEDIATE;");
+            try {
+                exec((std::string("CREATE TABLE sessions_new")+session_schema).c_str());
+                exec("INSERT INTO sessions_new(id,task_id,mode,total,completed) SELECT id,task_id,mode,total,completed FROM sessions;"
+                     "DROP TABLE sessions; ALTER TABLE sessions_new RENAME TO sessions; COMMIT;");
+            } catch (...) { sqlite3_exec(db_, "ROLLBACK", nullptr, nullptr, nullptr); throw; }
+            exec("PRAGMA foreign_keys=ON;");
+        }
     } catch (...) { sqlite3_close(db_); db_ = nullptr; throw; }
 }
 Store::~Store() { sqlite3_close(db_); }
@@ -156,8 +175,9 @@ Session Store::begin_session(Id task, Mode mode) {
 void Store::save_session(const Session& session) {
     exec("BEGIN IMMEDIATE");
     try {
-        Statement update(db_, "UPDATE sessions SET total=?,completed=? WHERE id=?");
-        update.bind(1,session.total); update.bind(2,session.completed); update.bind(3,session.id); update.next();
+        Statement update(db_, "UPDATE sessions SET total=?,completed=?,started_at=NULLIF(?,0),ended_at=NULLIF(?,0) WHERE id=?");
+        update.bind(1,session.total); update.bind(2,session.completed);
+        update.bind(3,session.started_at); update.bind(4,session.ended_at); update.bind(5,session.id); update.next();
         for (const auto& [day,amount] : session.days) {
             Statement query(db_, "INSERT INTO activity VALUES(?,?,?) ON CONFLICT(session_id,day) DO UPDATE SET duration=excluded.duration");
             query.bind(1,session.id); query.bind(2,day); query.bind(3,amount); query.next();
@@ -177,6 +197,16 @@ void Store::delete_sessions(const std::vector<Id>& ids) {
         }
         exec("COMMIT");
     } catch (...) { sqlite3_exec(db_, "ROLLBACK", nullptr, nullptr, nullptr); throw; }
+}
+std::vector<SessionRecord> Store::sessions_on(const std::string& day) const {
+    Statement query(db_, "SELECT s.id,COALESCE(t.title,'自由专注'),s.mode,s.completed,s.total,a.duration,s.started_at,s.ended_at "
+                         "FROM activity a JOIN sessions s ON s.id=a.session_id LEFT JOIN tasks t ON t.id=s.task_id "
+                         "WHERE a.day=? AND a.duration>0 ORDER BY s.started_at DESC,s.id DESC");
+    query.bind(1,day);
+    std::vector<SessionRecord> result;
+    while (query.next()) result.push_back({query.number(0),query.text(1),static_cast<Mode>(query.number(2)),
+        query.number(3)!=0,query.number(4),query.number(5),query.number(6),query.number(7)});
+    return result;
 }
 Statistics Store::statistics() const {
     Statistics result;

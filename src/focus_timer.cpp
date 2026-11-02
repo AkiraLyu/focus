@@ -58,6 +58,15 @@ void FocusTimer::set_mode(Mode mode) {
     session_.reset();
     cycle_sessions_.clear();
 }
+void FocusTimer::delete_session(Id id) {
+    if (id != 0 && id == active_session()) {
+        reset(ResetScope::Current);
+        return;
+    }
+    store_.delete_sessions({id});
+    std::erase(cycle_sessions_,id);
+    if (session_ && session_->id == id) session_.reset();
+}
 void FocusTimer::set_settings(Settings settings) {
     auto changed = timer_;
     changed.set_settings(settings);

@@ -13,6 +13,8 @@ public:
     void flush();
     void finish();
     void reset(ResetScope scope);
+    Id active_session() const { return session_ && !session_->completed ? session_->id : 0; }
+    void delete_session(Id id);
     void set_mode(Mode mode);
     void set_settings(Settings settings);
 private:

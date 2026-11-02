@@ -56,7 +56,7 @@ Application::Application(AdwApplication* app) : app_(app), store_(default_data_p
     adw_view_stack_add_titled_with_icon(stack_,stats_->widget(),"stats","统计","view-statistics-symbolic");
     ui::notify(G_OBJECT(stack_),"visible-child-name",window_,[this] {
         notes_->flush();
-        if (std::string(adw_view_stack_get_visible_child_name(stack_)) == "stats") stats_->refresh();
+        if (std::string(adw_view_stack_get_visible_child_name(stack_)) == "stats") stats_->show_overview();
         if (std::string(adw_view_stack_get_visible_child_name(stack_)) == "tasks") tasks_->refresh_totals();
     });
     g_signal_connect(window_,"close-request",G_CALLBACK(+[](GtkWindow*, gpointer data) -> gboolean {
@@ -201,6 +201,13 @@ void Application::reset_timer(ResetScope scope) {
     refresh();
 }
 void Application::set_mode(Mode mode) { focus_timer_.set_mode(mode); refresh(); }
+void Application::delete_session(Id id) {
+    focus_timer_.delete_session(id);
+    tasks_->refresh_totals();
+    stats_->refresh();
+    refresh();
+    toast("专注记录已删除");
+}
 void Application::tasks_changed() {
     const auto tasks = store_.tasks();
     if (!timer().engaged() && std::none_of(tasks.begin(),tasks.end(),[this](const Task& task) {

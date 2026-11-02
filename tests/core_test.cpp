@@ -2,6 +2,8 @@
 #include "timer.hpp"
 #include "focus_timer.hpp"
 #include <glib.h>
+#include <sqlite3.h>
+#include <algorithm>
 #include <cstdio>
 #include <filesystem>
 #include <stdexcept>
@@ -201,6 +203,110 @@ void resets(const std::string& path) {
     Store reopened(path);
     check(reopened.statistics().all==expected && reopened.statistics().completed==3,"Discarded records must remain absent after reopening the database");
 }
+void history(const std::string& path) {
+    const auto start=local_time(2026,11,2,23,59,50);
+    Id task, crossing_id;
+    {
+        Store store(path);
+        task=store.add_task("跨天任务");
+        auto crossing=store.begin_session(task,Mode::Pomodoro);
+        crossing_id=crossing.id;
+        crossing.add(20*second,start+20*second);
+        // A pause extends the wall-clock interval but contributes no focus duration.
+        crossing.add(10*second,start+120*second);
+        crossing.completed=true;
+        store.save_session(crossing);
+        store.save_session(crossing);
+        auto later=store.begin_session(0,Mode::Stopwatch);
+        later.add(5*second,start+200*second);
+        store.save_session(later);
+        const auto previous=store.sessions_on("2026-11-02");
+        const auto next=store.sessions_on("2026-11-03");
+        check(previous.size()==1 && next.size()==2,"Daily history must include every session that contributed to the selected day");
+        const auto& record=previous.front();
+        check(record.id==crossing.id && record.task=="跨天任务" && record.completed && record.mode==Mode::Pomodoro,
+              "History must retain task, mode and completion information");
+        check(record.total==30*second && record.day_total==10*second && next.back().day_total==20*second,
+              "History must distinguish whole-session duration from the selected day's portion");
+        check(record.started_at==start && record.ended_at==start+120*second,
+              "Session timestamps must span pauses without inflating focus duration");
+        check(next.front().id==later.id && next.front().task=="自由专注" && next.front().mode==Mode::Stopwatch,
+              "History must be newest first and include sessions without a task");
+        check(store.sessions_on("2026-11-04").empty(),"An empty day must have no records");
+    }
+    {
+        Store store(path);
+        check(store.sessions_on("2026-11-02").front().started_at==start,"Session timestamps must survive reopening");
+        FocusTimer focus(store);
+        focus.delete_session(crossing_id);
+        check(store.sessions_on("2026-11-02").empty() && store.sessions_on("2026-11-03").size()==1,
+              "Deleting a session must remove its contributions from every day");
+        check(store.statistics().all==5*second && store.statistics().completed==0 && store.tasks().front().total==0,
+              "Deletion must update total duration, completed count and task totals together");
+        focus.start(task,0);
+        focus.advance(3*second,start+300*second,true);
+        const auto active=focus.active_session();
+        focus.delete_session(active);
+        focus.advance(4*second,start+301*second); focus.flush();
+        check(!focus.timer().engaged() && store.statistics().all==5*second,
+              "Deleting a paused current session must reset the timer and never restore the record");
+        focus.start(task,5*second);
+        focus.advance(6*second,start+302*second);
+        check(focus.active_session()!=active,"Deleted record IDs must never identify newly created sessions");
+        focus.delete_session(active);
+        check(focus.timer().running(),"A stale deletion request must leave a newer timer untouched");
+        focus.delete_session(focus.active_session());
+        focus.flush();
+        check(!focus.timer().engaged() && store.statistics().all==5*second,"Deleting a running session must discard its accumulated time");
+        focus.start(task,10*second);
+        const auto delayed=focus.advance(10*second+30*60*second,start+30*60*second);
+        check(delayed.completed,"Test focus must complete");
+        const auto records=store.sessions_on("2026-11-03");
+        const auto found=std::find_if(records.begin(),records.end(),[](const SessionRecord& record){return record.completed;});
+        check(found!=records.end(),"Completed focus must appear in the history");
+        const auto completed=*found;
+        check(completed.started_at==start && completed.ended_at==start+25*60*second,
+              "Late completion callbacks must retain the actual start and finish times");
+        focus.delete_session(completed.id);
+        check(focus.timer().phase()==Phase::ShortBreak,"Deleting past focus must preserve the current break");
+        auto kept=store.begin_session(task,Mode::Stopwatch);
+        kept.add(7*second,start+2000*second); store.save_session(kept);
+        focus.reset(ResetScope::Cycle);
+        check(store.statistics().all==12*second,"Cycle reset must not delete unrelated records created after a history deletion");
+    }
+    Store reopened(path);
+    check(reopened.statistics().all==12*second && reopened.sessions_on("2026-11-02").empty(),
+          "Deleted history and corrected totals must survive restarting");
+}
+void history_upgrade(const std::string& path) {
+    sqlite3* db=nullptr;
+    check(sqlite3_open(path.c_str(),&db)==SQLITE_OK,"Could not create historical profile");
+    const auto result=sqlite3_exec(db,
+        "CREATE TABLE tasks(id INTEGER PRIMARY KEY,title TEXT NOT NULL,done INTEGER NOT NULL DEFAULT 0);"
+        "INSERT INTO tasks VALUES(1,'历史任务',0);"
+        "CREATE TABLE sessions(id INTEGER PRIMARY KEY,task_id INTEGER REFERENCES tasks(id),mode INTEGER NOT NULL,total INTEGER NOT NULL DEFAULT 0,completed INTEGER NOT NULL DEFAULT 0);"
+        "INSERT INTO sessions VALUES(1,1,0,60000000,1);"
+        "CREATE TABLE activity(session_id INTEGER NOT NULL REFERENCES sessions(id),day TEXT NOT NULL,duration INTEGER NOT NULL,PRIMARY KEY(session_id,day));"
+        "INSERT INTO activity VALUES(1,'2026-11-02',60000000);",nullptr,nullptr,nullptr);
+    sqlite3_close(db);
+    check(result==SQLITE_OK,"Could not populate historical profile");
+    {
+        Store store(path);
+        const auto records=store.sessions_on("2026-11-02");
+        check(records.size()==1 && records.front().total==60*second && records.front().task=="历史任务",
+              "Upgrading must preserve existing records and task relationships");
+        check(records.front().started_at==0 && records.front().ended_at==0,
+              "Historical timestamps must remain unknown instead of being fabricated");
+        check(store.statistics().all==60*second && store.statistics().completed==1,"Upgrading must preserve existing statistics");
+        store.delete_sessions({records.front().id});
+        auto fresh=store.begin_session(1,Mode::Stopwatch);
+        check(fresh.id!=records.front().id,"Upgraded profiles must also use stable record IDs");
+        fresh.add(3*second,local_time(2026,11,3,12,0,0)); store.save_session(fresh);
+    }
+    Store reopened(path);
+    check(reopened.statistics().all==3*second && reopened.sessions_on("2026-11-03").front().ended_at!=0,
+          "Upgraded profiles must support saving, deleting and reopening records");
+}
 }
 int main() {
     gchar* folder=g_dir_make_tmp("focus-test-XXXXXX",nullptr);
@@ -208,6 +314,7 @@ int main() {
     std::filesystem::path path(folder); g_free(folder);
     try {
         timers(); calendar(); persistence((path/"focus.db").string()); resets((path/"resets.db").string());
+        history((path/"history.db").string()); history_upgrade((path/"upgrade.db").string());
         std::filesystem::remove_all(path);
         std::puts("Timer, local-day allocation, task, note and persistence checks passed.");
         return 0;
