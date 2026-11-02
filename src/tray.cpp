@@ -2,6 +2,7 @@
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <stdexcept>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace focus {
@@ -10,7 +11,7 @@ constexpr auto item_path = "/StatusNotifierItem";
 constexpr auto menu_path = "/StatusNotifierItem/Menu";
 constexpr auto item_interface = "org.kde.StatusNotifierItem";
 constexpr auto icon_name = "io.github.focus.Timer";
-struct MenuAction { GApplication* app; std::string name; };
+struct MenuAction { Tray* tray; std::string name; };
 GVariant* icon_pixels() {
     GVariantBuilder builder;
     g_variant_builder_init(&builder,G_VARIANT_TYPE("a(iiay)"));
@@ -35,7 +36,7 @@ GVariant* icon_pixels() {
     return g_variant_ref_sink(g_variant_builder_end(&builder));
 }
 }
-Tray::Tray(GApplication* app) : app_(app) {
+Tray::Tray(GApplication* app, Activate activate) : activate_(std::move(activate)) {
     try {
         auto* bus=g_application_get_dbus_connection(app);
         if (!bus) throw std::runtime_error("无法连接系统托盘所需的会话总线");
@@ -49,10 +50,14 @@ Tray::Tray(GApplication* app) : app_(app) {
         interface_=g_dbus_node_info_new_for_xml(description.c_str(),nullptr);
         if (!interface_) throw std::runtime_error("系统托盘接口无效");
         static const GDBusInterfaceVTable handlers{
-            +[](GDBusConnection*,const char*,const char*,const char*,const char* method,GVariant*,GDBusMethodInvocation* invocation,gpointer data) {
+            +[](GDBusConnection*,const char*,const char*,const char*,const char* method,GVariant* parameters,GDBusMethodInvocation* invocation,gpointer data) {
                 auto& self=*static_cast<Tray*>(data);
-                if (g_str_equal(method,"Activate")) g_action_group_activate_action(G_ACTION_GROUP(self.app_),"show",nullptr);
-                else if (g_str_equal(method,"SecondaryActivate")) g_action_group_activate_action(G_ACTION_GROUP(self.app_),"toggle-timer",nullptr);
+                if (g_str_equal(method,"ProvideXdgActivationToken")) {
+                    const char* token=nullptr;
+                    g_variant_get(parameters,"(&s)",&token);
+                    self.activation_token_=token;
+                } else if (g_str_equal(method,"Activate")) self.activate("show");
+                else if (g_str_equal(method,"SecondaryActivate")) self.activate("toggle-timer");
                 // Hosts render the exported menu on ContextMenu; scrolling has no action.
                 g_dbus_method_invocation_return_value(invocation,nullptr);
             },
@@ -91,6 +96,11 @@ Tray::Tray(GApplication* app) : app_(app) {
     } catch (...) { cleanup(); throw; }
 }
 Tray::~Tray() { cleanup(); }
+void Tray::activate(const char* action) {
+    // Activation tokens belong to one user gesture, including menu actions.
+    const auto token=std::exchange(activation_token_,{});
+    activate_(action,token);
+}
 void Tray::cleanup() {
     if (cancellable_) g_cancellable_cancel(cancellable_);
     if (watcher_) g_bus_unwatch_name(watcher_);
@@ -110,8 +120,8 @@ DbusmenuMenuitem* Tray::add_item(const char* label,const char* action) {
     if (action) g_signal_connect_data(item,DBUSMENU_MENUITEM_SIGNAL_ITEM_ACTIVATED,
         G_CALLBACK(+[](DbusmenuMenuitem*,guint,gpointer data) {
             const auto command=*static_cast<MenuAction*>(data);
-            g_action_group_activate_action(G_ACTION_GROUP(command.app),command.name.c_str(),nullptr);
-        }),new MenuAction{app_,action},+[](gpointer data,GClosure*){delete static_cast<MenuAction*>(data);},G_CONNECT_DEFAULT);
+            command.tray->activate(command.name.c_str());
+        }),new MenuAction{this,action},+[](gpointer data,GClosure*){delete static_cast<MenuAction*>(data);},G_CONNECT_DEFAULT);
     dbusmenu_menuitem_child_append(root_,item);
     g_object_unref(item);
     return item; // Owned by the root menu.

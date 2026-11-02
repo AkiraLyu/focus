@@ -15,6 +15,7 @@
     <property name="ToolTip" type="(sa(iiay)ss)" access="read"/>
     <property name="ItemIsMenu" type="b" access="read"/>
     <property name="Menu" type="o" access="read"/>
+    <method name="ProvideXdgActivationToken"><arg name="token" type="s" direction="in"/></method>
     <method name="Activate"><arg type="i" direction="in"/><arg type="i" direction="in"/></method>
     <method name="SecondaryActivate"><arg type="i" direction="in"/><arg type="i" direction="in"/></method>
     <method name="ContextMenu"><arg type="i" direction="in"/><arg type="i" direction="in"/></method>

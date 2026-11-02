@@ -88,7 +88,12 @@ Application::Application(AdwApplication* app) : app_(app), store_(default_data_p
     const char* hide_keys[]={"<Primary>w",nullptr};
     gtk_application_set_accels_for_action(GTK_APPLICATION(app_),"app.quit",quit_keys);
     gtk_application_set_accels_for_action(GTK_APPLICATION(app_),"app.hide",hide_keys);
-    try { tray_=std::make_unique<Tray>(G_APPLICATION(app_)); }
+    try {
+        tray_=std::make_unique<Tray>(G_APPLICATION(app_),[this](const char* action,const std::string& token) {
+            if (g_str_equal(action,"show") && !token.empty()) gtk_window_set_startup_id(GTK_WINDOW(window_),token.c_str());
+            g_action_group_activate_action(G_ACTION_GROUP(app_),action,nullptr);
+        });
+    }
     catch (const std::exception& error) { toast(std::string("系统托盘不可用：")+error.what()); }
     g_application_hold(G_APPLICATION(app_));
     held_=true;
@@ -119,6 +124,7 @@ Application::~Application() {
     if (held_) g_application_release(G_APPLICATION(app_));
 }
 void Application::present() {
+    gtk_window_unminimize(GTK_WINDOW(window_));
     gtk_window_present(GTK_WINDOW(window_));
 }
 void Application::toast(const std::string& text) { adw_toast_overlay_add_toast(toasts_,adw_toast_new(text.c_str())); }
