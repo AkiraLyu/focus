@@ -146,6 +146,7 @@ void Application::tick(bool pause) {
         g_notification_set_default_action(notification,"app.show");
         g_application_send_notification(G_APPLICATION(app_),"timer-phase",notification);
         g_object_unref(notification);
+        event_sound_.play_completion(event.completed ? "专注完成" : "休息结束");
         tasks_->refresh_totals();
         stats_->refresh();
     }

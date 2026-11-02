@@ -10,6 +10,7 @@ pkg_check_modules(GLIB REQUIRED IMPORTED_TARGET glib-2.0)
 pkg_check_modules(SQLITE REQUIRED IMPORTED_TARGET sqlite3)
 pkg_check_modules(CMARK REQUIRED IMPORTED_TARGET libcmark-gfm)
 pkg_check_modules(DBUSMENU REQUIRED IMPORTED_TARGET dbusmenu-glib-0.4)
+pkg_check_modules(CANBERRA REQUIRED IMPORTED_TARGET libcanberra)
 find_program(GLIB_COMPILE_RESOURCES glib-compile-resources REQUIRED)
 
 add_library(focus_core src/timer.cpp src/store.cpp src/focus_timer.cpp)
@@ -23,9 +24,9 @@ add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/resources.c
         --target=${CMAKE_CURRENT_BINARY_DIR}/resources.c --generate-source
     DEPENDS data/focus.gresource.xml data/style.css data/status-notifier.xml data/io.github.focus.Timer.svg)
 add_library(focus_ui OBJECT src/application.cpp src/ui.cpp src/focus_page.cpp
-    src/tasks_page.cpp src/notes_page.cpp src/stats_page.cpp src/markdown.cpp src/tray.cpp
+    src/tasks_page.cpp src/notes_page.cpp src/stats_page.cpp src/markdown.cpp src/tray.cpp src/event_sound.cpp
     ${CMAKE_CURRENT_BINARY_DIR}/resources.c)
-target_link_libraries(focus_ui PUBLIC focus_core PkgConfig::GTK PkgConfig::CMARK PkgConfig::DBUSMENU)
+target_link_libraries(focus_ui PUBLIC focus_core PkgConfig::GTK PkgConfig::CMARK PkgConfig::DBUSMENU PkgConfig::CANBERRA)
 target_compile_options(focus_ui PRIVATE -Wall -Wextra -Wpedantic)
 add_executable(focus src/main.cpp)
 target_link_libraries(focus PRIVATE focus_ui)

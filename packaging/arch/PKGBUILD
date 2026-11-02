@@ -14,7 +14,9 @@ depends=(
   'gtk4>=4.16'
   'hicolor-icon-theme'
   'libadwaita>=1.6'
+  'libcanberra'
   'libdbusmenu-glib'
+  'sound-theme-freedesktop'
   'sqlite'
 )
 makedepends=('cmake' 'git' 'ninja' 'pkgconf')

@@ -1,5 +1,6 @@
 #pragma once
 #include "focus_timer.hpp"
+#include "event_sound.hpp"
 #include <adwaita.h>
 #include <memory>
 
@@ -37,6 +38,7 @@ private:
     AdwApplication* app_;
     Store store_;
     FocusTimer focus_timer_;
+    EventSound event_sound_;
     Id selected_task_ = 0;
     GtkWidget* window_ = nullptr;
     AdwViewStack* stack_ = nullptr;
