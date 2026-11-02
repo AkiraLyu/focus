@@ -1,0 +1,53 @@
+# Maintainer: AkiraLyu <akira.lyu.cn@gmail.com>
+
+pkgname=focus-git
+pkgver=0.1.0.r3.g97626e6
+pkgrel=1
+pkgdesc='Focus timer, quick notes and statistics for GNOME'
+arch=('x86_64')
+url='https://github.com/AkiraLyu/focus'
+license=('MIT')
+depends=(
+  'cmark-gfm'
+  'gcc-libs'
+  'glib2'
+  'gtk4>=4.16'
+  'hicolor-icon-theme'
+  'libadwaita>=1.6'
+  'sqlite'
+)
+makedepends=('cmake' 'git' 'ninja' 'pkgconf')
+provides=('focus')
+conflicts=('focus')
+source=("$pkgname::git+https://github.com/AkiraLyu/focus.git")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd "$pkgname"
+  local _ver
+  _ver=$(sed -n 's/^project(focus VERSION \([^ ]*\).*/\1/p' CMakeLists.txt)
+  if [[ -z $_ver ]]; then
+    printf 'error: cannot read the project version from CMakeLists.txt\n' >&2
+    return 1
+  fi
+  printf '%s.r%s.g%s\n' "$_ver" "$(git rev-list --count HEAD)" \
+    "$(git rev-parse --short=7 HEAD)"
+}
+
+build() {
+  cmake -S "$pkgname" -B build -G Ninja \
+    -DCMAKE_BUILD_TYPE=None \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DBUILD_TESTING=ON
+  cmake --build build
+}
+
+check() {
+  ctest --test-dir build --output-on-failure
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+  install -Dm644 "$pkgname/LICENSE" \
+    "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
