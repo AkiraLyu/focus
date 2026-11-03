@@ -1,4 +1,5 @@
 #include "tray.hpp"
+#include "i18n.hpp"
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <stdexcept>
 #include <string_view>
@@ -36,19 +37,19 @@ GVariant* icon_pixels() {
     return g_variant_ref_sink(g_variant_builder_end(&builder));
 }
 }
-Tray::Tray(GApplication* app, Activate activate) : activate_(std::move(activate)) {
+Tray::Tray(GApplication* app, Activate activate) : activate_(std::move(activate)), status_(_("Focus")) {
     try {
         auto* bus=g_application_get_dbus_connection(app);
-        if (!bus) throw std::runtime_error("无法连接系统托盘所需的会话总线");
+        if (!bus) throw std::runtime_error(_("Cannot connect to the session bus for the system tray."));
         connection_=G_DBUS_CONNECTION(g_object_ref(bus));
         cancellable_=g_cancellable_new();
         pixels_=icon_pixels();
         auto* xml=g_resources_lookup_data("/io/github/focus/Timer/status-notifier.xml",G_RESOURCE_LOOKUP_FLAGS_NONE,nullptr);
-        if (!xml) throw std::runtime_error("系统托盘接口资源缺失");
+        if (!xml) throw std::runtime_error(_("The system tray interface resource is missing."));
         const std::string description(static_cast<const char*>(g_bytes_get_data(xml,nullptr)),g_bytes_get_size(xml));
         g_bytes_unref(xml);
         interface_=g_dbus_node_info_new_for_xml(description.c_str(),nullptr);
-        if (!interface_) throw std::runtime_error("系统托盘接口无效");
+        if (!interface_) throw std::runtime_error(_("The system tray interface is invalid."));
         static const GDBusInterfaceVTable handlers{
             +[](GDBusConnection*,const char*,const char*,const char*,const char* method,GVariant* parameters,GDBusMethodInvocation* invocation,gpointer data) {
                 auto& self=*static_cast<Tray*>(data);
@@ -73,10 +74,10 @@ Tray::Tray(GApplication* app, Activate activate) : activate_(std::move(activate)
         }
         server_=dbusmenu_server_new(menu_path);
         root_=dbusmenu_menuitem_new();
-        status_item_=add_item("专注",nullptr);
-        add_item("显示窗口","show");
-        timer_item_=add_item("开始专注","toggle-timer");
-        add_item("退出","quit");
+        status_item_=add_item(_("Focus"),nullptr);
+        add_item(_("Show Window"),"show");
+        timer_item_=add_item(_("Start Focus"),"toggle-timer");
+        add_item(_("Quit"),"quit");
         dbusmenu_server_set_root(server_,root_);
         watcher_=g_bus_watch_name_on_connection(connection_,"org.kde.StatusNotifierWatcher",G_BUS_NAME_WATCHER_FLAGS_NONE,
             +[](GDBusConnection* connection,const char*,const char*,gpointer data) {
@@ -88,7 +89,7 @@ Tray::Tray(GApplication* app, Activate activate) : activate_(std::move(activate)
                         auto* reply=g_dbus_connection_call_finish(G_DBUS_CONNECTION(source),result,&error);
                         if (reply) g_variant_unref(reply);
                         if (error) {
-                            if (!g_error_matches(error,G_IO_ERROR,G_IO_ERROR_CANCELLED)) g_message("托盘注册未完成：%s",error->message);
+                            if (!g_error_matches(error,G_IO_ERROR,G_IO_ERROR_CANCELLED)) g_message(_("Tray registration failed: %s"),error->message);
                             g_error_free(error);
                         }
                     },nullptr);
@@ -130,13 +131,13 @@ GVariant* Tray::property(const char* name) const {
     const std::string_view key(name);
     if (key=="Category") return g_variant_new_string("ApplicationStatus");
     if (key=="Id" || key=="IconName") return g_variant_new_string(icon_name);
-    if (key=="Title") return g_variant_new_string("专注");
+    if (key=="Title") return g_variant_new_string(_("Focus"));
     if (key=="Status") return g_variant_new_string("Active");
     if (key=="WindowId") return g_variant_new_uint32(0);
     if (key=="Menu") return g_variant_new_object_path(menu_path);
     if (key=="ItemIsMenu") return g_variant_new_boolean(false);
     if (key=="IconPixmap") return g_variant_ref(pixels_);
-    if (key=="ToolTip") return g_variant_new("(s@a(iiay)ss)",icon_name,g_variant_ref(pixels_),"专注",status_.c_str());
+    if (key=="ToolTip") return g_variant_new("(s@a(iiay)ss)",icon_name,g_variant_ref(pixels_),_("Focus"),status_.c_str());
     if (key=="AttentionIconPixmap" || key=="OverlayIconPixmap") return g_variant_new_array(G_VARIANT_TYPE("(iiay)"),nullptr,0);
     return g_variant_new_string("");
 }

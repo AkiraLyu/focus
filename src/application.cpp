@@ -1,4 +1,5 @@
 #include "application.hpp"
+#include "i18n.hpp"
 #include "focus_page.hpp"
 #include "tasks_page.hpp"
 #include "notes_page.hpp"
@@ -11,7 +12,7 @@
 namespace focus {
 Application::Application(AdwApplication* app) : app_(app), store_(default_data_path()), focus_timer_(store_) {
     window_ = adw_application_window_new(GTK_APPLICATION(app));
-    gtk_window_set_title(GTK_WINDOW(window_),"专注 · Focus");
+    gtk_window_set_title(GTK_WINDOW(window_),_("Focus"));
     const auto state = store_.window_state();
     gtk_window_set_default_size(GTK_WINDOW(window_),state.width,state.height);
     gtk_widget_set_size_request(window_,720,600);
@@ -29,14 +30,14 @@ Application::Application(AdwApplication* app) : app_(app), store_(default_data_p
     adw_view_switcher_set_policy(ADW_VIEW_SWITCHER(switcher),ADW_VIEW_SWITCHER_POLICY_WIDE);
     adw_view_switcher_set_stack(ADW_VIEW_SWITCHER(switcher),stack_);
     adw_header_bar_set_title_widget(ADW_HEADER_BAR(header),switcher);
-    settings_button_ = ui::icon_button("emblem-system-symbolic","计时设置");
+    settings_button_ = ui::icon_button("emblem-system-symbolic",_("Timer Settings"));
     adw_header_bar_pack_end(ADW_HEADER_BAR(header),settings_button_);
     auto* menu=gtk_menu_button_new();
     gtk_menu_button_set_icon_name(GTK_MENU_BUTTON(menu),"open-menu-symbolic");
-    gtk_widget_set_tooltip_text(menu,"应用菜单");
+    gtk_widget_set_tooltip_text(menu,_("Application menu"));
     auto* model=g_menu_new();
-    g_menu_append(model,"隐藏窗口","app.hide");
-    g_menu_append(model,"退出","app.quit");
+    g_menu_append(model,_("Hide Window"),"app.hide");
+    g_menu_append(model,_("Quit"),"app.quit");
     gtk_menu_button_set_menu_model(GTK_MENU_BUTTON(menu),G_MENU_MODEL(model));
     g_object_unref(model);
     adw_header_bar_pack_end(ADW_HEADER_BAR(header),menu);
@@ -50,10 +51,10 @@ Application::Application(AdwApplication* app) : app_(app), store_(default_data_p
     tasks_ = std::make_unique<TasksPage>(*this);
     notes_ = std::make_unique<NotesPage>(*this);
     stats_ = std::make_unique<StatsPage>(*this);
-    adw_view_stack_add_titled_with_icon(stack_,focus_->widget(),"focus","番茄钟","alarm-symbolic");
-    adw_view_stack_add_titled_with_icon(stack_,tasks_->widget(),"tasks","长期任务","view-list-symbolic");
-    adw_view_stack_add_titled_with_icon(stack_,notes_->widget(),"notes","Quick Notes","document-edit-symbolic");
-    adw_view_stack_add_titled_with_icon(stack_,stats_->widget(),"stats","统计","view-statistics-symbolic");
+    adw_view_stack_add_titled_with_icon(stack_,focus_->widget(),"focus",_("Pomodoro"),"alarm-symbolic");
+    adw_view_stack_add_titled_with_icon(stack_,tasks_->widget(),"tasks",_("Tasks"),"view-list-symbolic");
+    adw_view_stack_add_titled_with_icon(stack_,notes_->widget(),"notes",_("Quick Notes"),"document-edit-symbolic");
+    adw_view_stack_add_titled_with_icon(stack_,stats_->widget(),"stats",_("Statistics"),"view-statistics-symbolic");
     ui::notify(G_OBJECT(stack_),"visible-child-name",window_,[this] {
         notes_->flush();
         if (std::string(adw_view_stack_get_visible_child_name(stack_)) == "stats") stats_->show_overview();
@@ -103,7 +104,7 @@ Application::Application(AdwApplication* app) : app_(app), store_(default_data_p
             g_action_group_activate_action(G_ACTION_GROUP(app_),action,nullptr);
         });
     }
-    catch (const std::exception& error) { toast(std::string("系统托盘不可用：")+error.what()); }
+    catch (const std::exception& error) { toast(i18n::format(_("System tray unavailable: %s"),error.what())); }
     g_application_hold(G_APPLICATION(app_));
     held_=true;
     refresh();
@@ -116,7 +117,7 @@ Application::Application(AdwApplication* app) : app_(app), store_(default_data_p
             try { self.focus_timer_.advance(timer_now(),g_get_real_time(),true); } catch (...) {}
             self.refresh();
             self.present();
-            ui::error(self.window_,std::string("计时已暂停，记录仍保留在内存中。请恢复存储后重试。\n")+e.what());
+            ui::error(self.window_,i18n::format(_("The timer is paused. Records are kept in memory. Restore storage access and try again.\n%s"),e.what()));
         }
         return G_SOURCE_CONTINUE;
     },this);
@@ -135,20 +136,20 @@ void Application::present() {
 }
 void Application::toast(const std::string& text) { adw_toast_overlay_add_toast(toasts_,adw_toast_new(text.c_str())); }
 void Application::select_task(Id id) {
-    if (timer().engaged()) throw std::logic_error("请先结束当前计时，再切换任务");
+    if (timer().engaged()) throw std::logic_error(_("Finish the current timer before switching tasks."));
     selected_task_ = id;
 }
 void Application::tick(bool pause) {
     const auto event = focus_timer_.advance(timer_now(),g_get_real_time(),pause);
     if (event.phase_changed) {
-        const std::string message = event.completed ? "专注完成，休息一下吧。准备好后开始休息。" : "休息结束，可以开始下一次专注。";
+        const std::string message = event.completed ? _("Focus complete. Start your break when you are ready.") : _("Break complete. You can start the next focus session.");
         toast(message);
-        auto* notification = g_notification_new(event.completed ? "专注完成" : "休息结束");
+        auto* notification = g_notification_new(event.completed ? _("Focus Complete") : _("Break Complete"));
         g_notification_set_body(notification,message.c_str());
         g_notification_set_default_action(notification,"app.show");
         g_application_send_notification(G_APPLICATION(app_),"timer-phase",notification);
         g_object_unref(notification);
-        event_sound_.play_completion(event.completed ? "专注完成" : "休息结束");
+        event_sound_.play_completion(event.completed ? _("Focus Complete") : _("Break Complete"));
         refresh_visible_statistics();
     }
     refresh();
@@ -159,8 +160,8 @@ void Application::refresh() {
     gtk_widget_set_sensitive(settings_button_,!timer().engaged());
     update_inhibitor();
     if (tray_) {
-        const char* state=timer().running()?(timer().phase()==Phase::Focus?"专注":"休息"):
-            timer().elapsed()>0?"已暂停":"待开始";
+        const char* state=timer().running()?(timer().phase()==Phase::Focus?_("Focus"):_("Break")):
+            timer().elapsed()>0?_("Paused"):_("Ready");
         tray_->update(std::string(state)+" · "+clock_text(timer().display_time()),timer_action_label());
     }
 }
@@ -173,14 +174,14 @@ void Application::refresh_visible_statistics() {
     else if (page=="tasks") tasks_->refresh_totals();
 }
 const char* Application::timer_action_label() const {
-    return timer().running()?"暂停":timer().elapsed()>0?"继续计时":timer().phase()==Phase::Focus?"开始专注":"开始休息";
+    return timer().running()?_("Pause"):timer().elapsed()>0?_("Resume"):timer().phase()==Phase::Focus?_("Start Focus"):_("Start Break");
 }
 void Application::update_inhibitor() {
     if (inhibit_requested_==timer().running()) return;
     inhibit_requested_=timer().running();
     if (inhibit_requested_) {
-        inhibit_cookie_=gtk_application_inhibit(GTK_APPLICATION(app_),nullptr,GTK_APPLICATION_INHIBIT_SUSPEND,"计时进行中");
-        if (!inhibit_cookie_) toast("系统未允许抑制休眠，唤醒后将更新计时");
+        inhibit_cookie_=gtk_application_inhibit(GTK_APPLICATION(app_),nullptr,GTK_APPLICATION_INHIBIT_SUSPEND,_("A timer is running."));
+        if (!inhibit_cookie_) toast(_("The system could not prevent sleep. The timer will update on wake."));
     } else if (inhibit_cookie_) {
         gtk_application_uninhibit(GTK_APPLICATION(app_),inhibit_cookie_);
         inhibit_cookie_=0;
@@ -199,7 +200,7 @@ void Application::finish_timer() {
     focus_timer_.finish();
     refresh();
     refresh_visible_statistics();
-    toast("专注时长已保存");
+    toast(_("Focus time saved."));
 }
 void Application::reset_timer(ResetScope scope) {
     focus_timer_.reset(scope);
@@ -212,7 +213,7 @@ void Application::delete_session(Id id) {
     focus_timer_.delete_session(id);
     refresh_visible_statistics();
     refresh();
-    toast("专注记录已删除");
+    toast(_("Focus record deleted."));
 }
 void Application::tasks_changed() {
     const auto tasks = store_.tasks();
@@ -249,13 +250,13 @@ void Application::quit() {
     g_application_quit(G_APPLICATION(app_));
 }
 void Application::show_settings() {
-    if (timer().engaged()) { toast("结束当前计时后可修改周期"); return; }
+    if (timer().engaged()) { toast(_("Finish the current timer before changing durations.")); return; }
     auto* dialog = adw_preferences_dialog_new();
-    adw_dialog_set_title(dialog,"计时设置");
+    adw_dialog_set_title(dialog,_("Timer Settings"));
     adw_dialog_set_content_width(dialog,480);
     auto* page = adw_preferences_page_new();
     auto* group = adw_preferences_group_new();
-    adw_preferences_group_set_title(ADW_PREFERENCES_GROUP(group),"番茄钟周期");
+    adw_preferences_group_set_title(ADW_PREFERENCES_GROUP(group),_("Pomodoro Cycle"));
     const auto settings = timer().settings();
     auto spin = [&](const char* title, int value, int min, int max) {
         auto* row = adw_spin_row_new_with_range(min,max,1);
@@ -265,13 +266,13 @@ void Application::show_settings() {
         adw_preferences_group_add(ADW_PREFERENCES_GROUP(group),row);
         return ADW_SPIN_ROW(row);
     };
-    auto* focus = spin("专注时长（分钟）",settings.focus_minutes,1,180);
-    auto* short_break = spin("短休息（分钟）",settings.short_break_minutes,1,60);
-    auto* long_break = spin("长休息（分钟）",settings.long_break_minutes,1,120);
-    auto* rounds = spin("长休息间隔（番茄数）",settings.rounds,2,12);
+    auto* focus = spin(_("Focus duration (minutes)"),settings.focus_minutes,1,180);
+    auto* short_break = spin(_("Short break (minutes)"),settings.short_break_minutes,1,60);
+    auto* long_break = spin(_("Long break (minutes)"),settings.long_break_minutes,1,120);
+    auto* rounds = spin(_("Pomodoros before a long break"),settings.rounds,2,12);
     adw_preferences_page_add(ADW_PREFERENCES_PAGE(page),ADW_PREFERENCES_GROUP(group));
     auto* actions = adw_preferences_group_new();
-    auto* save = ui::button("保存设置","suggested-action");
+    auto* save = ui::button(_("Save Settings"),"suggested-action");
     gtk_widget_set_halign(save,GTK_ALIGN_END);
     adw_preferences_group_add(ADW_PREFERENCES_GROUP(actions),save);
     adw_preferences_page_add(ADW_PREFERENCES_PAGE(page),ADW_PREFERENCES_GROUP(actions));
@@ -282,7 +283,7 @@ void Application::show_settings() {
         focus_timer_.set_settings(value);
         refresh();
         adw_dialog_close(dialog);
-        toast("计时设置已保存");
+        toast(_("Timer settings saved."));
     });
     adw_preferences_dialog_add(ADW_PREFERENCES_DIALOG(dialog),ADW_PREFERENCES_PAGE(page));
     adw_dialog_present(dialog,window_);

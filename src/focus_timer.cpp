@@ -1,4 +1,5 @@
 #include "focus_timer.hpp"
+#include "i18n.hpp"
 #include <algorithm>
 #include <stdexcept>
 
@@ -35,7 +36,7 @@ void FocusTimer::finish() {
 }
 void FocusTimer::reset(ResetScope scope) {
     if (scope == ResetScope::Cycle && timer_.mode() != Mode::Pomodoro)
-        throw std::logic_error("正向计时没有番茄钟周期");
+        throw std::logic_error(_("Stopwatch mode has no pomodoro cycle."));
     if (scope == ResetScope::Current && session_ && session_->completed) {
         flush();
         session_.reset();

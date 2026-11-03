@@ -1,4 +1,5 @@
 #include "event_sound.hpp"
+#include "i18n.hpp"
 #include <canberra.h>
 #include <gtk/gtk.h>
 
@@ -17,7 +18,7 @@ void EventSound::play_completion(const char* description) {
         result = ca_context_create(&context_);
         if (result == CA_SUCCESS) result = ca_context_change_props(context_,
             CA_PROP_APPLICATION_ID,"io.github.focus.Timer",
-            CA_PROP_APPLICATION_NAME,"专注",
+            CA_PROP_APPLICATION_NAME,_("Focus"),
             CA_PROP_APPLICATION_ICON_NAME,"io.github.focus.Timer",
             CA_PROP_MEDIA_ROLE,"event",nullptr);
     }
@@ -27,7 +28,7 @@ void EventSound::play_completion(const char* description) {
         CA_PROP_CANBERRA_XDG_THEME_NAME,theme && *theme ? theme : "freedesktop",nullptr);
     g_free(theme);
     if (result < CA_SUCCESS) {
-        if (result != CA_ERROR_DISABLED) g_message("系统提示音播放失败：%s",ca_strerror(result));
+        if (result != CA_ERROR_DISABLED) g_message(_("Could not play the system sound: %s"),ca_strerror(result));
         if (context_) { ca_context_destroy(context_); context_ = nullptr; }
     }
 }

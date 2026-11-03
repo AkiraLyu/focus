@@ -30,6 +30,6 @@ private:
     GVariant* pixels_ = nullptr;
     guint registration_ = 0;
     guint watcher_ = 0;
-    std::string status_ = "专注";
+    std::string status_;
 };
 }

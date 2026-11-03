@@ -1,9 +1,11 @@
 #include "application.hpp"
+#include "i18n.hpp"
 #include <cstdio>
 #include <exception>
 
 int main(int argc, char** argv) {
-    g_set_application_name("专注");
+    focus::i18n::initialize();
+    g_set_application_name(_("Focus"));
     auto* app = adw_application_new("io.github.focus.Timer", G_APPLICATION_DEFAULT_FLAGS);
     std::unique_ptr<focus::Application> controller;
     bool failed = false;
@@ -14,7 +16,7 @@ int main(int argc, char** argv) {
             if (!*c.controller) *c.controller = std::make_unique<focus::Application>(c.app);
             (*c.controller)->present();
         } catch (const std::exception& e) {
-            std::fprintf(stderr,"无法启动专注：%s\n",e.what());
+            std::fprintf(stderr,_("Could not start Focus: %s\n"),e.what());
             *c.failed = true;
             g_application_quit(G_APPLICATION(c.app));
         }

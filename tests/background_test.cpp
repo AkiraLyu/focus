@@ -1,4 +1,5 @@
 #include "application.hpp"
+#include "i18n.hpp"
 #include <filesystem>
 #include <functional>
 #include <iostream>
@@ -73,6 +74,7 @@ void exercise(AdwApplication* app) {
 }
 }
 int main() {
+    i18n::initialize();
     auto* temporary=g_dir_make_tmp("focus-background-test-XXXXXX",nullptr);
     if (!temporary) return 1;
     const std::filesystem::path path(temporary);

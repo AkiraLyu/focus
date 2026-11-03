@@ -1,4 +1,5 @@
 #include "markdown.hpp"
+#include "i18n.hpp"
 #include <cmark-gfm.h>
 #include <cmark-gfm-core-extensions.h>
 #include <memory>
@@ -60,7 +61,7 @@ public:
         case CMARK_NODE_LINK:
             children(node,depth); tag("link",start); append(" ("+std::string(cmark_node_get_url(node))+")"); break;
         case CMARK_NODE_IMAGE:
-            append("[图片："); children(node,depth); append("] ("+std::string(cmark_node_get_url(node))+")"); break;
+            append(_("[Image: ")); children(node,depth); append("] ("+std::string(cmark_node_get_url(node))+")"); break;
         default: {
             const std::string kind=cmark_node_get_type_string(node);
             if (kind=="table") {

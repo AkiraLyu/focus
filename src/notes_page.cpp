@@ -1,4 +1,5 @@
 #include "notes_page.hpp"
+#include "i18n.hpp"
 #include "markdown.hpp"
 #include "ui.hpp"
 #include <algorithm>
@@ -16,17 +17,17 @@ NotesPage::NotesPage(Application& app) : app_(app) {
     gtk_widget_set_size_request(sidebar,230,-1);
     gtk_widget_add_css_class(sidebar,"note-sidebar");
     auto* controls = ui::box(GTK_ORIENTATION_VERTICAL,10); ui::margins(controls,16);
-    auto* create = ui::button("新建笔记", "suggested-action");
+    auto* create = ui::button(_("New Note"), "suggested-action");
     gtk_box_append(GTK_BOX(controls),create);
     search_ = gtk_search_entry_new();
-    g_object_set(search_,"placeholder-text","搜索笔记",nullptr);
+    g_object_set(search_,"placeholder-text",_("Search notes"),nullptr);
     gtk_box_append(GTK_BOX(controls),search_);
     gtk_box_append(GTK_BOX(sidebar),controls);
     list_ = gtk_list_box_new();
     gtk_widget_add_css_class(list_,"navigation-sidebar");
     gtk_list_box_set_selection_mode(GTK_LIST_BOX(list_),GTK_SELECTION_SINGLE);
     gtk_list_box_set_activate_on_single_click(GTK_LIST_BOX(list_),true);
-    auto* no_results = ui::label("暂无笔记", "dim-label"); ui::margins(no_results,20);
+    auto* no_results = ui::label(_("No Notes"), "dim-label"); ui::margins(no_results,20);
     gtk_list_box_set_placeholder(GTK_LIST_BOX(list_),no_results);
     gtk_box_append(GTK_BOX(sidebar),ui::scrolled(list_));
     gtk_paned_set_start_child(GTK_PANED(split),sidebar);
@@ -37,11 +38,11 @@ NotesPage::NotesPage(Application& app) : app_(app) {
     gtk_widget_add_css_class(title_bar,"notes-toolbar");
     title_ = gtk_entry_new();
     gtk_widget_add_css_class(title_,"flat"); gtk_widget_add_css_class(title_,"note-title");
-    gtk_entry_set_placeholder_text(GTK_ENTRY(title_),"笔记标题");
+    gtk_entry_set_placeholder_text(GTK_ENTRY(title_),_("Note title"));
     gtk_entry_set_max_length(GTK_ENTRY(title_),160);
     gtk_widget_set_hexpand(title_,true);
     gtk_box_append(GTK_BOX(title_bar),title_);
-    auto* remove = ui::icon_button("user-trash-symbolic","删除笔记");
+    auto* remove = ui::icon_button("user-trash-symbolic",_("Delete note"));
     gtk_widget_add_css_class(remove,"flat");
     gtk_box_append(GTK_BOX(title_bar),remove);
     gtk_box_append(GTK_BOX(content_),title_bar);
@@ -65,8 +66,8 @@ NotesPage::NotesPage(Application& app) : app_(app) {
     gtk_text_view_set_left_margin(GTK_TEXT_VIEW(preview_),12);
     gtk_text_view_set_right_margin(GTK_TEXT_VIEW(preview_),12);
     gtk_text_view_set_bottom_margin(GTK_TEXT_VIEW(preview_),24);
-    gtk_stack_add_titled(GTK_STACK(editor_stack_),ui::scrolled(editor_),"edit","编辑");
-    gtk_stack_add_titled(GTK_STACK(editor_stack_),ui::scrolled(preview_),"preview","预览");
+    gtk_stack_add_titled(GTK_STACK(editor_stack_),ui::scrolled(editor_),"edit",_("Edit"));
+    gtk_stack_add_titled(GTK_STACK(editor_stack_),ui::scrolled(preview_),"preview",_("Preview"));
     auto* bar = ui::box(GTK_ORIENTATION_HORIZONTAL,12); ui::margins(bar,12);
     auto* switcher = gtk_stack_switcher_new();
     gtk_stack_switcher_set_stack(GTK_STACK_SWITCHER(switcher),GTK_STACK(editor_stack_));
@@ -79,7 +80,7 @@ NotesPage::NotesPage(Application& app) : app_(app) {
     gtk_box_append(GTK_BOX(content_),editor_stack_);
     empty_ = adw_status_page_new();
     adw_status_page_set_icon_name(ADW_STATUS_PAGE(empty_),"document-edit-symbolic");
-    adw_status_page_set_title(ADW_STATUS_PAGE(empty_),"暂无笔记");
+    adw_status_page_set_title(ADW_STATUS_PAGE(empty_),_("No Notes"));
     gtk_stack_add_named(GTK_STACK(right),empty_,"empty");
     gtk_stack_add_named(GTK_STACK(right),content_,"content");
     gtk_paned_set_end_child(GTK_PANED(split),right);
@@ -126,14 +127,14 @@ void NotesPage::reload() {
         auto* title=ui::label(note.title,"heading");
         gtk_label_set_wrap(GTK_LABEL(title),false); gtk_label_set_ellipsize(GTK_LABEL(title),PANGO_ELLIPSIZE_END);
         gtk_box_append(GTK_BOX(content),title);
-        auto summary=note.body.empty()?std::string("空白笔记"):note.body;
+        auto summary=note.body.empty()?std::string(_("Empty note")):note.body;
         std::replace(summary.begin(),summary.end(),'\n',' ');
         auto* body=ui::label(summary,"dim-label");
         gtk_label_set_wrap(GTK_LABEL(body),false); gtk_label_set_ellipsize(GTK_LABEL(body),PANGO_ELLIPSIZE_END);
         gtk_label_set_max_width_chars(GTK_LABEL(body),24);
         gtk_box_append(GTK_BOX(content),body);
         auto* date=g_date_time_new_from_unix_local(note.updated/second);
-        auto* formatted=g_date_time_format(date,"%m 月 %d 日 · %H:%M");
+        auto* formatted=g_date_time_format(date,_("%m/%d · %H:%M"));
         auto* timestamp=ui::label(formatted,"caption"); gtk_widget_add_css_class(timestamp,"dim-label");
         gtk_box_append(GTK_BOX(content),timestamp);
         g_free(formatted); g_date_time_unref(date);
@@ -163,7 +164,7 @@ void NotesPage::select(Id id) {
 void NotesPage::changed() {
     if (loading_ || !current_) return;
     dirty_=true;
-    gtk_label_set_text(GTK_LABEL(status_),"正在保存…");
+    gtk_label_set_text(GTK_LABEL(status_),_("Saving…"));
     gtk_widget_set_visible(status_,true);
     if (save_id_) g_source_remove(save_id_);
     save_id_=g_timeout_add(600,+[](gpointer data)->gboolean {
@@ -171,7 +172,7 @@ void NotesPage::changed() {
         self.save_id_=0;
         try { self.flush(); }
         catch (const std::exception& e) {
-            gtk_label_set_text(GTK_LABEL(self.status_),"保存失败，内容仍在编辑器中");
+            gtk_label_set_text(GTK_LABEL(self.status_),_("Could not save. Your text is still in the editor."));
             ui::error(self.root_,e.what());
         }
         return G_SOURCE_REMOVE;
@@ -189,8 +190,8 @@ void NotesPage::preview() { render_markdown(gtk_text_view_get_buffer(GTK_TEXT_VI
 void NotesPage::delete_current() {
     if (!current_) return;
     flush();
-    auto* dialog=adw_alert_dialog_new("删除这条笔记？","笔记将从本机永久删除。");
-    adw_alert_dialog_add_responses(ADW_ALERT_DIALOG(dialog),"cancel","取消","delete","删除",nullptr);
+    auto* dialog=adw_alert_dialog_new(_("Delete This Note?"),_("This note will be permanently deleted from this device."));
+    adw_alert_dialog_add_responses(ADW_ALERT_DIALOG(dialog),"cancel",_("Cancel"),"delete",_("Delete"),nullptr);
     adw_alert_dialog_set_response_appearance(ADW_ALERT_DIALOG(dialog),"delete",ADW_RESPONSE_DESTRUCTIVE);
     adw_alert_dialog_set_default_response(ADW_ALERT_DIALOG(dialog),"cancel");
     adw_alert_dialog_set_close_response(ADW_ALERT_DIALOG(dialog),"cancel");
@@ -201,7 +202,7 @@ void NotesPage::delete_current() {
         auto notes=app_.store().notes();
         if (!notes.empty()) select(notes.front().id);
         else gtk_stack_set_visible_child_name(GTK_STACK(gtk_widget_get_parent(content_)),"empty");
-        reload(); app_.toast("笔记已删除");
+        reload(); app_.toast(_("Note deleted."));
     });
     adw_dialog_present(dialog,app_.window());
 }

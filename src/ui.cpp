@@ -1,4 +1,5 @@
 #include "ui.hpp"
+#include "i18n.hpp"
 #include <exception>
 
 namespace focus::ui {
@@ -63,8 +64,8 @@ void margins(GtkWidget* widget, int margin) {
 void clear_box(GtkWidget* box) { while (auto* child=gtk_widget_get_first_child(box)) gtk_box_remove(GTK_BOX(box),child); }
 void clear_list(GtkWidget* list) { while (auto* child=gtk_widget_get_first_child(list)) gtk_list_box_remove(GTK_LIST_BOX(list),child); }
 void error(GtkWidget* owner, const std::string& message) {
-    auto* dialog = adw_alert_dialog_new("操作未完成",message.c_str());
-    adw_alert_dialog_add_response(ADW_ALERT_DIALOG(dialog),"close","知道了");
+    auto* dialog = adw_alert_dialog_new(_("Unable to Complete Action"),message.c_str());
+    adw_alert_dialog_add_response(ADW_ALERT_DIALOG(dialog),"close",_("OK"));
     adw_alert_dialog_set_default_response(ADW_ALERT_DIALOG(dialog),"close");
     adw_dialog_present(dialog, owner);
 }

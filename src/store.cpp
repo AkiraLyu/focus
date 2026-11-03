@@ -1,4 +1,5 @@
 #include "store.hpp"
+#include "i18n.hpp"
 #include <glib.h>
 #include <sqlite3.h>
 #include <algorithm>
@@ -46,7 +47,7 @@ std::string date_string(GDateTime* date) {
 }
 void validate_title(const std::string& title) {
     if (title.empty() || title.find_first_not_of(" \t\n\r") == std::string::npos)
-        throw std::invalid_argument("请输入标题");
+        throw std::invalid_argument(_("Enter a title."));
 }
 }
 std::string local_date(Microseconds wall_us) { return date_string(datetime(wall_us).get()); }
@@ -149,11 +150,11 @@ Settings Store::settings() const {
     Statement query(db_, "SELECT focus,short_break,long_break,rounds FROM settings WHERE id=1");
     query.next();
     Settings settings{static_cast<int>(query.number(0)), static_cast<int>(query.number(1)), static_cast<int>(query.number(2)), static_cast<int>(query.number(3))};
-    if (!settings.valid()) throw std::runtime_error("本地计时设置无效");
+    if (!settings.valid()) throw std::runtime_error(_("The saved timer settings are invalid."));
     return settings;
 }
 void Store::save_settings(const Settings& settings) {
-    if (!settings.valid()) throw std::invalid_argument("计时周期超出允许范围");
+    if (!settings.valid()) throw std::invalid_argument(_("Timer durations are outside the allowed range."));
     Statement query(db_, "UPDATE settings SET focus=?,short_break=?,long_break=?,rounds=? WHERE id=1");
     query.bind(1, settings.focus_minutes); query.bind(2, settings.short_break_minutes);
     query.bind(3, settings.long_break_minutes); query.bind(4, settings.rounds); query.next();
@@ -164,7 +165,7 @@ WindowState Store::window_state() const {
     return {static_cast<int>(query.number(0)),static_cast<int>(query.number(1)),query.number(2)!=0};
 }
 void Store::save_window_state(const WindowState& state) {
-    if (state.width<=0 || state.height<=0) throw std::invalid_argument("窗口尺寸必须大于零");
+    if (state.width<=0 || state.height<=0) throw std::invalid_argument(_("Window dimensions must be greater than zero."));
     Statement query(db_, "INSERT INTO window_state VALUES(1,?,?,?) ON CONFLICT(id) DO UPDATE SET width=excluded.width,height=excluded.height,maximized=excluded.maximized");
     query.bind(1,state.width); query.bind(2,state.height); query.bind(3,state.maximized); query.next();
 }
@@ -198,12 +199,13 @@ std::vector<Note> Store::notes() const {
     return result;
 }
 Id Store::add_note() {
-    Statement query(db_, "INSERT INTO notes(title,body,updated) VALUES('未命名笔记','',?)");
-    query.bind(1,g_get_real_time()); query.next(); return sqlite3_last_insert_rowid(db_);
+    Statement query(db_, "INSERT INTO notes(title,body,updated) VALUES(?,'',?)");
+    query.bind(1,std::string(_("Untitled Note")));
+    query.bind(2,g_get_real_time()); query.next(); return sqlite3_last_insert_rowid(db_);
 }
 void Store::save_note(Id id, const std::string& title, const std::string& body) {
     Statement query(db_, "UPDATE notes SET title=?,body=?,updated=? WHERE id=?");
-    query.bind(1,title.empty()?"未命名笔记":title); query.bind(2,body);
+    query.bind(1,title.empty()?_("Untitled Note"):title); query.bind(2,body);
     query.bind(3,g_get_real_time()); query.bind(4,id); query.next();
 }
 void Store::delete_note(Id id) {
@@ -224,7 +226,7 @@ void Store::save_session(const Session& session) {
         if (totals_cache_) {
             Statement previous(db_,"SELECT task_id,total,completed FROM sessions WHERE id=?");
             previous.bind(1,session.id);
-            if (!previous.next()) throw std::runtime_error("专注记录已被删除");
+            if (!previous.next()) throw std::runtime_error(_("This focus record has been deleted."));
             task=previous.number(0);
             duration_delta=session.total-previous.number(1);
             completed_delta=static_cast<int>(session.completed)-static_cast<int>(previous.number(2));
@@ -264,10 +266,10 @@ void Store::delete_sessions(const std::vector<Id>& ids) {
     for (const auto& [task,duration,completed] : removed) adjust_totals(task,-duration,-completed);
 }
 std::vector<SessionRecord> Store::sessions_on(const std::string& day) const {
-    Statement query(db_, "SELECT s.id,COALESCE(t.title,'自由专注'),s.mode,s.completed,s.total,a.duration,s.started_at,s.ended_at "
+    Statement query(db_, "SELECT s.id,COALESCE(t.title,?),s.mode,s.completed,s.total,a.duration,s.started_at,s.ended_at "
                          "FROM activity a JOIN sessions s ON s.id=a.session_id LEFT JOIN tasks t ON t.id=s.task_id "
                          "WHERE a.day=? AND a.duration>0 ORDER BY s.started_at DESC,s.id DESC");
-    query.bind(1,day);
+    query.bind(1,std::string(_("Free Focus"))); query.bind(2,day);
     std::vector<SessionRecord> result;
     while (query.next()) result.push_back({query.number(0),query.text(1),static_cast<Mode>(query.number(2)),
         query.number(3)!=0,query.number(4),query.number(5),query.number(6),query.number(7)});
@@ -297,7 +299,7 @@ Statistics Store::statistics() const {
         if (found!=summary.tasks.end() && found->second>0) result.tasks.push_back({tasks.text(1),found->second});
     }
     if (const auto free=summary.tasks.find(0); free!=summary.tasks.end() && free->second>0)
-        result.tasks.push_back({"自由专注",free->second});
+        result.tasks.push_back({_("Free Focus"),free->second});
     std::stable_sort(result.tasks.begin(),result.tasks.end(),[](const TaskTotal& left,const TaskTotal& right){return left.total>right.total;});
     statistics_cache_=result;
     statistics_date_=current_date;

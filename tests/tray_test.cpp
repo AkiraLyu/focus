@@ -1,4 +1,5 @@
 #include "tray.hpp"
+#include "i18n.hpp"
 #include <iostream>
 #include <stdexcept>
 
@@ -65,6 +66,7 @@ void exercise(GApplication* app) {
 }
 }
 int main() {
+    focus::i18n::initialize();
     auto* app=g_application_new("io.github.focus.Timer.TrayTest",G_APPLICATION_NON_UNIQUE);
     if (!g_application_register(app,nullptr,nullptr) || !g_application_get_dbus_connection(app)) {
         g_object_unref(app); return 77;

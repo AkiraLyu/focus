@@ -1,4 +1,5 @@
 #include "timer.hpp"
+#include "i18n.hpp"
 #include <algorithm>
 #include <cstdio>
 #include <stdexcept>
@@ -19,8 +20,8 @@ bool Settings::valid() const {
 }
 Timer::Timer(Settings settings) { set_settings(settings); }
 void Timer::set_settings(Settings settings) {
-    if (!settings.valid()) throw std::invalid_argument("计时周期超出允许范围");
-    if (engaged()) throw std::logic_error("请先结束当前计时");
+    if (!settings.valid()) throw std::invalid_argument(_("Timer durations are outside the allowed range."));
+    if (engaged()) throw std::logic_error(_("Finish the current timer first."));
     settings_ = settings;
     rounds_ = 0;
     phase_ = Phase::Focus;
@@ -83,7 +84,7 @@ void Timer::finish() {
     phase_ = Phase::Focus;
 }
 void Timer::set_mode(Mode mode) {
-    if (engaged()) throw std::logic_error("请先结束当前计时");
+    if (engaged()) throw std::logic_error(_("Finish the current timer first."));
     reset(ResetScope::Cycle);
     mode_ = mode;
 }
@@ -97,8 +98,9 @@ std::string clock_text(Microseconds time) {
 }
 std::string duration_text(Microseconds time) {
     auto seconds = time / second;
-    if (seconds < 60) return std::to_string(seconds) + " 秒";
-    if (seconds < 3600) return std::to_string(seconds / 60) + " 分钟";
-    return std::to_string(seconds / 3600) + " 小时 " + std::to_string(seconds / 60 % 60) + " 分钟";
+    if (seconds < 60) return i18n::format(P_("%lld second","%lld seconds",seconds),static_cast<long long>(seconds));
+    const auto minutes=seconds/60;
+    if (seconds < 3600) return i18n::format(P_("%lld minute","%lld minutes",minutes),static_cast<long long>(minutes));
+    return i18n::format(_("%lld h %lld min"),static_cast<long long>(seconds/3600),static_cast<long long>(minutes%60));
 }
 }

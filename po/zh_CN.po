@@ -1,0 +1,416 @@
+# Simplified Chinese translations for Focus.
+# Copyright (C) 2026 Focus contributors
+# This file is distributed under the same license as the Focus package.
+msgid ""
+msgstr ""
+"Project-Id-Version: focus 0.1.0\n"
+"Report-Msgid-Bugs-To: https://github.com/AkiraLyu/focus/issues\n"
+"POT-Creation-Date: 2026-11-03 00:00+0900\n"
+"PO-Revision-Date: 2026-11-03 00:00+0900\n"
+"Last-Translator: Focus contributors\n"
+"Language-Team: Simplified Chinese\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#, c-format
+msgid "%.1f h"
+msgstr "%.1f 小时"
+
+#, c-format
+msgid "%lld h %lld min"
+msgstr "%lld 小时 %lld 分钟"
+
+#, c-format
+msgid "%lld s"
+msgstr "%lld 秒"
+
+#, c-format
+msgid "%lld min"
+msgstr "%lld 分钟"
+
+msgid "%m/%d · %H:%M"
+msgstr "%m 月 %d 日 · %H:%M"
+
+#, c-format
+msgid "%s · %s\nStart  %s\nEnd  %s"
+msgstr "%s · %s\n开始  %s\n结束  %s"
+
+#, c-format
+msgid "%s · %s · View focus records"
+msgstr "%s · %s · 查看专注记录"
+
+msgid "A timer is running."
+msgstr "计时进行中"
+
+msgid "Application menu"
+msgstr "应用菜单"
+
+msgid "Back to statistics"
+msgstr "返回统计"
+
+msgid "Break"
+msgstr "休息"
+
+msgid "Break Complete"
+msgstr "休息结束"
+
+msgid "Break complete. You can start the next focus session."
+msgstr "休息结束，可以开始下一次专注。"
+
+msgid "Cancel"
+msgstr "取消"
+
+msgid "Cannot connect to the session bus for the system tray."
+msgstr "无法连接系统托盘所需的会话总线"
+
+msgid "Completed"
+msgstr "已完成"
+
+#, c-format
+msgid "Could not play the system sound: %s"
+msgstr "系统提示音播放失败：%s"
+
+msgid "Could not save. Your text is still in the editor."
+msgstr "保存失败，内容仍在编辑器中"
+
+#, c-format
+msgid "Could not start Focus: %s\n"
+msgstr "无法启动专注：%s\n"
+
+msgid "Create"
+msgstr "创建"
+
+msgid "Current task"
+msgstr "当前任务"
+
+msgid "Delete"
+msgstr "删除"
+
+msgid "Delete Focus Record?"
+msgstr "删除专注记录？"
+
+msgid "Delete This Note?"
+msgstr "删除这条笔记？"
+
+msgid "Delete focus record"
+msgstr "删除专注记录"
+
+msgid "Delete note"
+msgstr "删除笔记"
+
+msgid "Edit"
+msgstr "编辑"
+
+msgid "Edit Task"
+msgstr "编辑任务"
+
+msgid "Edit task name"
+msgstr "编辑任务名称"
+
+msgid "Empty note"
+msgstr "空白笔记"
+
+msgid "Ended"
+msgstr "已结束"
+
+msgid "Enter a title."
+msgstr "请输入标题"
+
+msgid "Finish & Save"
+msgstr "结束并保存"
+
+msgid "Finish the current timer before changing durations."
+msgstr "结束当前计时后可修改周期"
+
+msgid "Finish the current timer before switching tasks."
+msgstr "请先结束当前计时，再切换任务"
+
+msgid "Finish the current timer first."
+msgstr "请先结束当前计时"
+
+msgid "Finish this task’s timer first."
+msgstr "请先结束该任务的计时"
+
+msgid "Focus"
+msgstr "专注"
+
+msgid "Focus Complete"
+msgstr "专注完成"
+
+msgid "Focus Records"
+msgstr "专注记录"
+
+msgid "Focus Time"
+msgstr "专注时间"
+
+msgid "Focus by Task"
+msgstr "任务专注分布"
+
+msgid "Focus complete. Start your break when you are ready."
+msgstr "专注完成，休息一下吧。准备好后开始休息。"
+
+msgid "Focus duration (minutes)"
+msgstr "专注时长（分钟）"
+
+msgid "Focus duration, excluding pauses"
+msgstr "专注时长（不含暂停）"
+
+msgid "Focus in the Last 7 Days"
+msgstr "近七天的专注"
+
+msgid "Focus record deleted."
+msgstr "专注记录已删除"
+
+#, c-format
+msgid "Focus records for %s"
+msgstr "%s 的专注记录"
+
+msgid "Focus time saved."
+msgstr "专注时长已保存"
+
+msgid "Free Focus"
+msgstr "自由专注"
+
+msgid "Hide Window"
+msgstr "隐藏窗口"
+
+msgid "Last 7 Days"
+msgstr "近七天"
+
+msgid "Long Break"
+msgstr "长休息"
+
+msgid "Long break (minutes)"
+msgstr "长休息（分钟）"
+
+msgid "Mark as completed"
+msgstr "标记为已完成"
+
+msgid "New Long-term Task"
+msgstr "新建长期任务"
+
+msgid "New Note"
+msgstr "新建笔记"
+
+msgid "New Task"
+msgstr "新建任务"
+
+msgid "No Focus Records"
+msgstr "暂无专注记录"
+
+msgid "No Notes"
+msgstr "暂无笔记"
+
+msgid "No Tasks"
+msgstr "暂无任务"
+
+msgid "Not recorded"
+msgstr "未记录"
+
+msgid "Note deleted."
+msgstr "笔记已删除"
+
+msgid "Note title"
+msgstr "笔记标题"
+
+msgid "OK"
+msgstr "知道了"
+
+msgid "Pause"
+msgstr "暂停"
+
+msgid "Paused"
+msgstr "已暂停"
+
+msgid "Pomodoro"
+msgstr "番茄钟"
+
+msgid "Pomodoro Cycle"
+msgstr "番茄钟周期"
+
+msgid "Pomodoros"
+msgstr "完成番茄"
+
+msgid "Pomodoros before a long break"
+msgstr "长休息间隔（番茄数）"
+
+msgid "Preview"
+msgstr "预览"
+
+msgid "Quick Notes"
+msgstr "速记"
+
+msgid "Quit"
+msgstr "退出"
+
+msgid "Ready"
+msgstr "待开始"
+
+msgid "Reopen task"
+msgstr "重新打开任务"
+
+msgid "Reset"
+msgstr "重置"
+
+msgid "Reset Current Timer"
+msgstr "重置当前计时"
+
+msgid "Reset Pomodoro Cycle"
+msgstr "重置整个番茄钟周期"
+
+msgid "Resume"
+msgstr "继续计时"
+
+msgid "Running"
+msgstr "计时中"
+
+msgid "Save"
+msgstr "保存"
+
+msgid "Save Settings"
+msgstr "保存设置"
+
+msgid "Saving…"
+msgstr "正在保存…"
+
+msgid "Search notes"
+msgstr "搜索笔记"
+
+msgid "Short Break"
+msgstr "短休息"
+
+msgid "Short break (minutes)"
+msgstr "短休息（分钟）"
+
+msgid "Show Completed"
+msgstr "显示已完成"
+
+msgid "Show Window"
+msgstr "显示窗口"
+
+msgid "Start Break"
+msgstr "开始休息"
+
+msgid "Start Focus"
+msgstr "开始专注"
+
+msgid "Start and end times not recorded"
+msgstr "起止时间未记录"
+
+msgid "Statistics"
+msgstr "统计"
+
+msgid "Stopwatch"
+msgstr "正向计时"
+
+msgid "Stopwatch mode has no pomodoro cycle."
+msgstr "正向计时没有番茄钟周期"
+
+#, c-format
+msgid "System tray unavailable: %s"
+msgstr "系统托盘不可用：%s"
+
+msgid "Task name"
+msgstr "任务名称"
+
+msgid "Tasks"
+msgstr "长期任务"
+
+msgid "The saved timer settings are invalid."
+msgstr "本地计时设置无效"
+
+msgid "The system could not prevent sleep. The timer will update on wake."
+msgstr "系统未允许抑制休眠，唤醒后将更新计时"
+
+msgid "The system tray interface is invalid."
+msgstr "系统托盘接口无效"
+
+msgid "The system tray interface resource is missing."
+msgstr "系统托盘接口资源缺失"
+
+#, c-format
+msgid "The timer is paused. Records are kept in memory. Restore storage access and try again.\n%s"
+msgstr "计时已暂停，记录仍保留在内存中。请恢复存储后重试。\n%s"
+
+msgid "This also resets the current timer."
+msgstr "同时重置当前计时。"
+
+msgid "This cannot be undone."
+msgstr "删除后无法恢复。"
+
+#, c-format
+msgid "This day %s"
+msgstr "当天 %s"
+
+msgid "This focus record has been deleted."
+msgstr "专注记录已被删除"
+
+msgid "This note will be permanently deleted from this device."
+msgstr "笔记将从本机永久删除。"
+
+msgid "Time on other dates will also be deleted."
+msgstr "跨天时长一并删除。"
+
+msgid "Timer Settings"
+msgstr "计时设置"
+
+msgid "Timer durations are outside the allowed range."
+msgstr "计时周期超出允许范围"
+
+msgid "Timer mode"
+msgstr "计时方式"
+
+msgid "Timer settings saved."
+msgstr "计时设置已保存"
+
+msgid "Today"
+msgstr "今天"
+
+msgid "Today's Focus"
+msgstr "今日专注"
+
+msgid "Total Focus"
+msgstr "累计专注"
+
+#, c-format
+msgid "Total focus %s"
+msgstr "累计专注 %s"
+
+#, c-format
+msgid "Tray registration failed: %s"
+msgstr "托盘注册未完成：%s"
+
+msgid "Unable to Complete Action"
+msgstr "操作未完成"
+
+msgid "Untitled Note"
+msgstr "未命名笔记"
+
+msgid "Window dimensions must be greater than zero."
+msgstr "窗口尺寸必须大于零"
+
+msgid "[Image: "
+msgstr "[图片："
+
+#, c-format
+msgid "%lld second"
+msgid_plural "%lld seconds"
+msgstr[0] "%lld 秒"
+
+#, c-format
+msgid "%lld minute"
+msgid_plural "%lld minutes"
+msgstr[0] "%lld 分钟"
+
+#, c-format
+msgid "%d pomodoro completed"
+msgid_plural "%d pomodoros completed"
+msgstr[0] "已完成 %d 个番茄"
+
+#, c-format
+msgid "%zu record · Focus time %s"
+msgid_plural "%zu records · Focus time %s"
+msgstr[0] "%zu 条记录 · 当天专注 %s"

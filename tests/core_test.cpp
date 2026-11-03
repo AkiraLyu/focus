@@ -1,6 +1,7 @@
 #include "store.hpp"
 #include "timer.hpp"
 #include "focus_timer.hpp"
+#include "i18n.hpp"
 #include <glib.h>
 #include <sqlite3.h>
 #include <algorithm>
@@ -388,6 +389,7 @@ void cached_statistics(const std::string& path) {
 }
 }
 int main() {
+    i18n::initialize();
     gchar* folder=g_dir_make_tmp("focus-test-XXXXXX",nullptr);
     if (!folder) return 1;
     std::filesystem::path path(folder); g_free(folder);

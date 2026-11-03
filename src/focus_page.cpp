@@ -1,4 +1,5 @@
 #include "focus_page.hpp"
+#include "i18n.hpp"
 #include "ui.hpp"
 #include <algorithm>
 #include <cmath>
@@ -35,9 +36,9 @@ FocusPage::FocusPage(Application& app) : app_(app) {
     auto* selectors = ui::box(GTK_ORIENTATION_HORIZONTAL,8);
     gtk_box_set_homogeneous(GTK_BOX(selectors),true);
     gtk_box_append(GTK_BOX(content),selectors);
-    const char* modes[] = {"番茄钟", "正向计时", nullptr};
+    const char* modes[] = {_("Pomodoro"), _("Stopwatch"), nullptr};
     mode_ = gtk_drop_down_new_from_strings(modes);
-    gtk_widget_set_tooltip_text(mode_,"计时方式");
+    gtk_widget_set_tooltip_text(mode_,_("Timer mode"));
     gtk_box_append(GTK_BOX(selectors),mode_);
     auto* overlay = gtk_overlay_new();
     gtk_widget_set_halign(overlay,GTK_ALIGN_CENTER);
@@ -51,7 +52,7 @@ FocusPage::FocusPage(Application& app) : app_(app) {
     gtk_overlay_set_child(GTK_OVERLAY(overlay),ring_);
     auto* center = ui::box(GTK_ORIENTATION_VERTICAL,6);
     gtk_widget_set_halign(center,GTK_ALIGN_CENTER); gtk_widget_set_valign(center,GTK_ALIGN_CENTER);
-    phase_ = ui::label("专注时间", "timer-phase");
+    phase_ = ui::label(_("Focus Time"), "timer-phase");
     time_ = ui::label("25:00", "timer-digits");
     round_ = ui::label("", "dim-label");
     for (auto* widget : {phase_,time_,round_}) {
@@ -72,21 +73,21 @@ FocusPage::FocusPage(Application& app) : app_(app) {
         gtk_widget_set_hexpand(selector,true);
         gtk_widget_set_size_request(selector,-1,40);
     }
-    gtk_widget_set_tooltip_text(picker_,"当前任务");
+    gtk_widget_set_tooltip_text(picker_,_("Current task"));
     gtk_box_append(GTK_BOX(selectors),picker_);
     auto* buttons = ui::box(GTK_ORIENTATION_HORIZONTAL,8);
     gtk_box_set_homogeneous(GTK_BOX(buttons),true);
     gtk_widget_set_size_request(buttons,-1,44);
-    start_ = ui::button("开始专注","suggested-action");
+    start_ = ui::button(_("Start Focus"),"suggested-action");
     gtk_widget_add_css_class(start_,"pill");
-    finish_ = ui::button("结束并保存"); gtk_widget_add_css_class(finish_,"pill");
+    finish_ = ui::button(_("Finish & Save")); gtk_widget_add_css_class(finish_,"pill");
     auto* reset = gtk_menu_button_new();
-    gtk_menu_button_set_label(GTK_MENU_BUTTON(reset),"重置");
+    gtk_menu_button_set_label(GTK_MENU_BUTTON(reset),_("Reset"));
     gtk_menu_button_set_always_show_arrow(GTK_MENU_BUTTON(reset),true);
     gtk_widget_add_css_class(reset,"pill");
     auto* reset_menu = g_menu_new();
-    g_menu_append(reset_menu,"重置当前计时","app.reset-current");
-    g_menu_append(reset_menu,"重置整个番茄钟周期","app.reset-cycle");
+    g_menu_append(reset_menu,_("Reset Current Timer"),"app.reset-current");
+    g_menu_append(reset_menu,_("Reset Pomodoro Cycle"),"app.reset-cycle");
     gtk_menu_button_set_menu_model(GTK_MENU_BUTTON(reset),G_MENU_MODEL(reset_menu));
     g_object_unref(reset_menu);
     gtk_box_append(GTK_BOX(buttons),start_); gtk_box_append(GTK_BOX(buttons),finish_);
@@ -129,9 +130,10 @@ void FocusPage::update() {
     loading_ = true;
     gtk_drop_down_set_selected(GTK_DROP_DOWN(mode_),timer.mode()==Mode::Pomodoro?0:1);
     loading_ = false;
-    const char* phase = timer.mode()==Mode::Stopwatch ? "正向计时" : timer.phase()==Phase::Focus ? "专注时间" : timer.phase()==Phase::ShortBreak ? "短休息" : "长休息";
+    const char* phase = timer.mode()==Mode::Stopwatch ? _("Stopwatch") : timer.phase()==Phase::Focus ? _("Focus Time") : timer.phase()==Phase::ShortBreak ? _("Short Break") : _("Long Break");
     gtk_label_set_text(GTK_LABEL(phase_),phase);
-    const auto round = "已完成 " + std::to_string(timer.completed_rounds()) + " 个番茄";
+    const auto rounds=timer.completed_rounds();
+    const auto round=i18n::format(P_("%d pomodoro completed","%d pomodoros completed",rounds),rounds);
     gtk_widget_set_visible(round_,timer.mode()==Mode::Pomodoro);
     gtk_label_set_text(GTK_LABEL(round_),round.c_str());
     gtk_button_set_label(GTK_BUTTON(start_),app_.timer_action_label());
@@ -144,7 +146,7 @@ void FocusPage::reload_task_choices() {
     const auto tasks = app_.store().tasks();
     loading_ = true;
     auto* strings = gtk_string_list_new(nullptr);
-    gtk_string_list_append(strings,"自由专注");
+    gtk_string_list_append(strings,_("Free Focus"));
     task_ids_ = {0};
     guint selected = 0;
     for (const auto& task : tasks) {
