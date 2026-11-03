@@ -1,7 +1,7 @@
 # Maintainer: AkiraLyu <akira.lyu.cn@gmail.com>
 
 pkgname=focus-git
-pkgver=0.1.0.r3.g97626e6
+pkgver=0.1.0.r11.ge7e5c2f
 pkgrel=1
 pkgdesc='Focus timer, quick notes and statistics for GNOME'
 arch=('x86_64')
